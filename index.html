@@ -93,7 +93,7 @@
                     <div class="flex items-center bg-gray-800 rounded px-3 py-1 border border-gray-600 gap-2">
                         <i class="fas fa-tachometer-alt text-gray-400 text-sm" title="Velocitat"></i>
                         <button id="btn-speed-down" class="text-gray-300 hover:text-white px-2 bg-gray-700 rounded font-bold">-</button>
-                        <input type="range" id="speed-slider" min="0" max="30" step="0.5" value="1.0" class="w-20">
+                        <input type="range" id="speed-slider" min="0" max="30" step="0.1" value="1.0" class="w-20">
                         <button id="btn-speed-up" class="text-gray-300 hover:text-white px-2 bg-gray-700 rounded font-bold">+</button>
                         <span id="speed-display" class="text-xs text-blue-300 font-mono w-8 text-right">1.0</span>
                     </div>
@@ -321,9 +321,9 @@
                 controls.update();
             });
 
-            // Control de Velocitat (Salts de 0.5 fins a 30)
-            document.getElementById('btn-speed-up').addEventListener('click', () => { uiSpeed = Math.min(30.0, uiSpeed + 0.5); updateSpeedUI(); });
-            document.getElementById('btn-speed-down').addEventListener('click', () => { uiSpeed = Math.max(0.0, uiSpeed - 0.5); updateSpeedUI(); });
+            // Control de Velocitat (Salts de 0.1 fins a 30)
+            document.getElementById('btn-speed-up').addEventListener('click', () => { uiSpeed = Math.min(30.0, parseFloat((uiSpeed + 0.1).toFixed(1))); updateSpeedUI(); });
+            document.getElementById('btn-speed-down').addEventListener('click', () => { uiSpeed = Math.max(0.0, parseFloat((uiSpeed - 0.1).toFixed(1))); updateSpeedUI(); });
             document.getElementById('speed-slider').addEventListener('input', (e) => { uiSpeed = parseFloat(e.target.value); updateSpeedUI(); });
 
             document.getElementById('btn-save-strip').addEventListener('click', () => {
