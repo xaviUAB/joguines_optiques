@@ -115,8 +115,8 @@
                     <div class="speed-control-group">
                         <i class="fas fa-tachometer-alt text-gray-400 mx-2 text-sm" title="Velocitat"></i>
                         <button id="btn-speed-down" class="speed-btn">-</button>
-                        <span id="speed-display" class="speed-val">1.0</span>
-                        <input type="range" id="speed-slider" min="0" max="30" step="0.1" value="1.0" class="w-24 mx-2">
+                        <span id="speed-display" class="speed-val">5.3</span>
+                        <input type="range" id="speed-slider" min="0" max="30" step="0.1" value="5.3" class="w-24 mx-2">
                         <button id="btn-speed-up" class="speed-btn">+</button>
                     </div>
                     <button id="btn-play" class="btn btn-primary"><i class="fas fa-play mr-2"></i>Girar</button>
@@ -173,7 +173,6 @@
                 <div id="canvas-stack" class="relative flex-grow checkerboard-bg rounded-lg border-2 border-gray-600 overflow-hidden flex items-center justify-center bg-[#1a202c]" style="height: 65vh;">
                     <canvas id="onion-canvas" class="absolute opacity-30 pointer-events-none"></canvas>
                     <canvas id="modal-canvas" class="absolute"></canvas>
-                    <!-- Capa per a la guia visual de límits (blava) -->
                     <canvas id="guide-canvas" class="absolute pointer-events-none"></canvas>
                     <canvas id="overlay-canvas" class="absolute"></canvas>
                 </div>
@@ -210,10 +209,10 @@
         let currentDevice = deviceData.taumatrop;
         let isPlaying = false;
         
-        let visualSpeed = 1.0; 
+        let visualSpeed = 5.3; 
         let baseEngineSpeed = 0.05; 
 
-        // Memory array to keep drawn frames across compatible devices
+        // Memory array to keep drawn frames
         let globalFramesMemory = []; 
         let frames = []; 
         let activeFrameIndex = 0;
@@ -259,7 +258,6 @@
         const overlayCtx = overlayCanvas.getContext('2d', {willReadFrequently: true});
         const guideCanvas = document.getElementById('guide-canvas');
         const guideCtx = guideCanvas.getContext('2d');
-        
         const snapshotCanvas = document.createElement('canvas');
         const snapshotCtx = snapshotCanvas.getContext('2d', {willReadFrequently: true});
 
@@ -294,9 +292,35 @@
             loadGitHubAssets();
             loadTemplates();
             
-            createDefaultAnimation();
-            updateAnimationStrip();
+            loadDefaultDeviceAnimation();
             animate();
+        }
+
+        // --- Automatic Default Loading Logic ---
+        function loadDefaultDeviceAnimation() {
+            const url = currentDevice.id === 'taumatrop' 
+                ? 'https://raw.githubusercontent.com/xaviuab/joguines_optiques/main/animacions/2_taumatrop.png'
+                : 'https://raw.githubusercontent.com/xaviuab/joguines_optiques/main/animacions/12_trot_cavall.png';
+            
+            const img = new Image();
+            img.crossOrigin = "Anonymous";
+            img.onload = () => {
+                let loadNum = currentDevice.numFrames === 24 ? 12 : currentDevice.numFrames;
+                const fw = img.width / loadNum;
+                for(let i=0; i<currentDevice.numFrames; i++) {
+                    const ctx = frames[i].getContext('2d');
+                    ctx.clearRect(0, 0, frames[i].width, frames[i].height);
+                    const sourceIndex = i % loadNum; 
+                    ctx.drawImage(img, sourceIndex*fw, 0, fw, img.height, 0, 0, frames[i].width, frames[i].height);
+                }
+                saveToGlobalMemory();
+                updateAnimationStrip();
+            };
+            img.onerror = () => {
+                createDefaultAnimation(); // fallback en cas que l'arxiu falli
+                updateAnimationStrip();
+            };
+            img.src = url;
         }
 
         // --- GitHub API loading ---
@@ -362,7 +386,7 @@
                 for(let i=0; i<currentDevice.numFrames; i++) {
                     const ctx = frames[i].getContext('2d');
                     ctx.clearRect(0, 0, frames[i].width, frames[i].height);
-                    const sourceIndex = i % loadNum; // Automatically loops 12 into 24 for mutoscope
+                    const sourceIndex = i % loadNum; 
                     ctx.drawImage(img, sourceIndex*fw, 0, fw, img.height, 0, 0, frames[i].width, frames[i].height);
                 }
                 saveToGlobalMemory();
@@ -379,27 +403,36 @@
                 currentDevice = deviceData[e.target.value];
                 updateInfoPanel();
                 
-                // Smart memory restoration
                 initEditor();
                 if (globalFramesMemory.length > 0 && prevNumFrames === currentDevice.numFrames) {
                     restoreFromGlobalMemory();
+                    updateAnimationStrip();
                 } else if (globalFramesMemory.length === 12 && currentDevice.id === 'mutoscopi') {
                     // Adapt 12 to 24
                     for(let i=0; i<24; i++) {
                         const ctx = frames[i].getContext('2d');
                         ctx.drawImage(globalFramesMemory[i%12], 0, 0);
                     }
+                    saveToGlobalMemory();
+                    updateAnimationStrip();
+                } else if (globalFramesMemory.length === 24 && prevNumFrames === 24 && currentDevice.numFrames === 12) {
+                    // Downgrade 24 to 12
+                    for(let i=0; i<12; i++) {
+                        const ctx = frames[i].getContext('2d');
+                        ctx.drawImage(globalFramesMemory[i], 0, 0);
+                    }
+                    saveToGlobalMemory();
+                    updateAnimationStrip();
                 } else {
-                    createDefaultAnimation();
+                    loadDefaultDeviceAnimation();
                 }
                 
                 buildDevice3D();
-                updateAnimationStrip();
             });
 
             btnPlay.addEventListener('click', () => {
                 isPlaying = !isPlaying;
-                spinVelocity = 0; // Atura física lliure
+                spinVelocity = 0; 
                 btnPlay.innerHTML = isPlaying ? '<i class="fas fa-pause mr-2"></i>Pausar' : '<i class="fas fa-play mr-2"></i>Girar';
                 if(isPlaying) btnPlay.classList.replace('btn-primary', 'btn-secondary');
                 else btnPlay.classList.replace('btn-secondary', 'btn-primary');
@@ -407,7 +440,7 @@
 
             document.getElementById('btn-reset-cam').addEventListener('click', () => {
                 if(currentDevice.id === 'fenaquitiscopi') {
-                    camera.position.set(0, 12, 4); controls.target.set(0, 5, -8);
+                    camera.position.set(0, 12, 3.5); controls.target.set(0, 10, -3);
                 } else {
                     camera.position.set(0, 15, 25); controls.target.set(0, 0, 0);
                 }
@@ -451,7 +484,6 @@
                 const files = Array.from(e.target.files).filter(f => f.type.match('image.*'));
                 if(files.length === 0) return;
                 
-                // Create object URLs and push to local gallery
                 const gallery = document.getElementById('gallery-container');
                 gallery.innerHTML = '';
                 files.forEach(file => {
@@ -665,7 +697,6 @@
                 if (clipboardData) { saveUndoState(); modalCtx.drawImage(clipboardData, 0, 0); }
             });
 
-            // Import per frame
             document.getElementById('btn-import-modal').addEventListener('click', () => document.getElementById('modal-image-upload').click());
             document.getElementById('modal-image-upload').addEventListener('change', (e) => {
                 const file = e.target.files[0];
@@ -707,11 +738,10 @@
 
             if (currentTool === 'scale') {
                 if (!selRect || !selImgData) {
-                    // Si no hi ha res seleccionat, ho seleccionem tot
                     commitSelection();
                     selRect = {x:0, y:0, w:modalCanvas.width, h:modalCanvas.height};
                     selImgData = modalCtx.getImageData(0,0,modalCanvas.width, modalCanvas.height);
-                    snapshotCtx.clearRect(0,0,modalCanvas.width, modalCanvas.height); // tot buit de fons
+                    snapshotCtx.clearRect(0,0,modalCanvas.width, modalCanvas.height);
                 }
                 saveUndoState();
                 isScaling = true;
@@ -797,12 +827,10 @@
                 selRect.w *= scaleFactor; selRect.h *= scaleFactor;
                 selRect.x -= (selRect.w - selRect.w/scaleFactor)/2; selRect.y -= (selRect.h - selRect.h/scaleFactor)/2;
                 
-                // Actualitzem les dades de selecció a la nova mida
                 const tempC = document.createElement('canvas'); tempC.width = modalCanvas.width; tempC.height = modalCanvas.height;
                 tempC.getContext('2d').drawImage(modalCanvas, 0, 0);
                 selImgData = tempC.getContext('2d').getImageData(selRect.x, selRect.y, selRect.w, selRect.h);
                 
-                // Restaurem snapshot buidant el lloc
                 snapshotCtx.clearRect(0,0,modalCanvas.width, modalCanvas.height);
                 snapshotCtx.drawImage(modalCanvas, 0, 0);
                 snapshotCtx.clearRect(selRect.x, selRect.y, selRect.w, selRect.h);
@@ -947,13 +975,11 @@
             radialCanvas.width = size; radialCanvas.height = size;
             radialCtx.clearRect(0, 0, size, size);
             
-            // Fons blanc llis
             radialCtx.fillStyle = '#ffffff'; 
             radialCtx.beginPath(); 
             radialCtx.arc(size/2, size/2, size/2-10, 0, Math.PI*2); 
             radialCtx.fill();
 
-            // Talls / Escletxes transparents
             radialCtx.globalCompositeOperation = 'destination-out';
             for (let i = 0; i < frames.length; i++) {
                 radialCtx.save(); 
@@ -964,22 +990,19 @@
             }
             radialCtx.globalCompositeOperation = 'source-over';
 
-            // Dibuix de les imatges més petites i externes, sense solapaments i en ORDRE INVERS (12 a 1) per veure-ho bé al mirall
             for (let i = 0; i < frames.length; i++) {
                 radialCtx.save(); 
                 radialCtx.translate(size/2, size/2); 
                 radialCtx.rotate(i*angleStep);
                 
-                const revIndex = frames.length - 1 - i;
-                
                 const drawW = 150 * 0.6; 
                 const drawH = 200 * 0.6;
-                radialCtx.drawImage(frames[revIndex], -drawW/2, -outerR + 20, drawW, drawH);
+                radialCtx.drawImage(frames[i], -drawW/2, -outerR + 20, drawW, drawH);
                 radialCtx.restore();
             }
             radialTexture.needsUpdate = true;
             
-            // CARA ORNAMENTAL (Gris fosc, mira a l'espectador)
+            // CARA POSTERIOR (Gris fosc, mira a l'espectador)
             radialCanvasB.width = size; radialCanvasB.height = size;
             radialCtxB.clearRect(0, 0, size, size);
             radialCtxB.fillStyle = '#2d3748'; 
@@ -1016,7 +1039,7 @@
             stripCanvas = document.createElement('canvas'); stripCtx = stripCanvas.getContext('2d');
             animationStripTexture = new THREE.CanvasTexture(stripCanvas); 
             animationStripTexture.minFilter = THREE.LinearFilter;
-            animationStripTexture.wrapS = THREE.RepeatWrapping; // Vital per a inversions
+            animationStripTexture.wrapS = THREE.RepeatWrapping; 
 
             radialCanvas = document.createElement('canvas'); radialCtx = radialCanvas.getContext('2d');
             radialTexture = new THREE.CanvasTexture(radialCanvas); radialTexture.minFilter = THREE.LinearFilter;
@@ -1038,7 +1061,6 @@
                 const drum = new THREE.Group(); drum.position.y = 4;
                 drum.add(new THREE.Mesh(new THREE.CylinderGeometry(10, 10, 0.5, 32), woodMat));
                 
-                // openEnded: true because Zootrop is open on top. map.repeat.x = -1 to correct the reading direction
                 animationStripTexture.repeat.set(-1, 1);
                 const stripMesh = new THREE.Mesh(new THREE.CylinderGeometry(9.4, 9.4, 6, 64, 1, true), new THREE.MeshBasicMaterial({ map: animationStripTexture, side: THREE.BackSide }));
                 stripMesh.position.y = 3; drum.add(stripMesh);
@@ -1058,7 +1080,6 @@
                 const stripMesh = new THREE.Mesh(new THREE.CylinderGeometry(11.5, 11.5, 6, 64, 1, true), new THREE.MeshBasicMaterial({ map: animationStripTexture, side: THREE.BackSide }));
                 stripMesh.position.y = 3; rotor.add(stripMesh);
 
-                // Mirall interior. Repeat (-1, 1) to mirror it perfectly.
                 const mirrorTex = animationStripTexture.clone();
                 mirrorTex.repeat.set(-1, 1); mirrorTex.needsUpdate = true;
                 
@@ -1078,7 +1099,7 @@
                 
                 const fenaqTexMatF = new THREE.MeshBasicMaterial({ map: radialTexture, transparent: true, alphaTest: 0.1, side: THREE.FrontSide });
                 const faceF = new THREE.Mesh(new THREE.CircleGeometry(8, 64), fenaqTexMatF);
-                faceF.rotation.y = Math.PI; // Front face looks towards mirror
+                faceF.rotation.y = Math.PI; 
                 rotor.add(faceF);
                 
                 const fenaqTexMatB = new THREE.MeshBasicMaterial({ map: radialTexB, transparent: true, alphaTest: 0.1, side: THREE.FrontSide });
@@ -1087,15 +1108,14 @@
                 
                 deviceObject.add(rotor); 
                 
-                // Mirall Gegant Virtual
                 if (THREE.Reflector) {
-                    const mirrorGeo = new THREE.PlaneGeometry(35, 35);
+                    const mirrorGeo = new THREE.PlaneGeometry(50, 50);
                     const mirror = new THREE.Reflector(mirrorGeo, { clipBias: 0.003, textureWidth: window.innerWidth * window.devicePixelRatio, textureHeight: window.innerHeight * window.devicePixelRatio, color: 0x8899a6 });
-                    mirror.position.set(0, 5, -8);
+                    mirror.position.set(0, 5, -5);
                     deviceObject.add(mirror);
                 }
-                // Camera enganxada darrere mirant pel forat superior cap al mirall
-                camera.position.set(0, 12, 4); controls.target.set(0, 5, -8);
+                
+                camera.position.set(0, 12, 3.5); controls.target.set(0, 10, -3);
 
             } else if (currentDevice.id === 'mutoscopi') {
                 deviceObject.add(new THREE.Mesh(new THREE.BoxGeometry(3, 8, 3), darkWoodMat).translateY(-2));
@@ -1106,7 +1126,6 @@
                 for(let i=0; i<currentDevice.numFrames; i++) {
                     const mat = new THREE.MeshBasicMaterial({ map: animationStripTexture, side: THREE.DoubleSide });
                     const card = new THREE.Mesh(new THREE.PlaneGeometry(3, 4).translate(0,2,0), mat); card.position.y = 1.2;
-                    // Mapegem cada fragment (24 fragments)
                     const geom = card.geometry; const uvs = geom.attributes.uv.array;
                     const uvOffset = i / currentDevice.numFrames; const uvWidth = 1 / currentDevice.numFrames;
                     for (let j=0; j<uvs.length; j+=2) { uvs[j] = uvs[j] * uvWidth + uvOffset; }
@@ -1130,7 +1149,6 @@
                 rotor.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-5,0,0), new THREE.Vector3(-10,0,0)]), strMat));
                 rotor.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(5,0,0), new THREE.Vector3(10,0,0)]), strMat));
                 
-                // Hitbox esfèrica invisible per agafar el taumatrop fàcilment
                 hitboxMesh = new THREE.Mesh(new THREE.SphereGeometry(6, 16, 16), new THREE.MeshBasicMaterial({visible: false}));
                 rotor.add(hitboxMesh);
                 
@@ -1155,11 +1173,10 @@
                     else if(currentDevice.id==='mutoscopi' || currentDevice.id==='taumatrop') r.rotation.x += (currentDevice.id==='taumatrop'? speed*5 : speed);
                     else r.rotation.y += speed;
                 } else if (Math.abs(spinVelocity) > 0.001) {
-                    // Inèrcia / Fricció lenta
                     if(currentDevice.id==='fenaquitiscopi') r.rotation.z += spinVelocity;
                     else if(currentDevice.id==='mutoscopi' || currentDevice.id==='taumatrop') r.rotation.x += spinVelocity;
                     else r.rotation.y += spinVelocity;
-                    spinVelocity *= 0.99; // Lenta
+                    spinVelocity *= 0.99;
                 }
             }
             controls.update(); renderer.render(scene, camera);
