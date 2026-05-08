@@ -434,7 +434,7 @@
             });
 
             document.getElementById('btn-reset-cam').addEventListener('click', () => {
-                if(currentDevice.id === 'fenaquitiscopi') { camera.position.set(0, 15, 8); controls.target.set(0, 15, 0); }
+                if(currentDevice.id === 'fenaquitiscopi') { camera.position.set(0, 12, 15); controls.target.set(0, 12, 0); }
                 else if (currentDevice.id === 'mutoscopi') { camera.position.set(12, 8, 12); controls.target.set(0, 4, 0); }
                 else if (currentDevice.id === 'taumatrop') { camera.position.set(0, 5, 15); controls.target.set(0, 5, 0); }
                 else { camera.position.set(0, 15, 25); controls.target.set(0, 0, 0); }
@@ -1020,7 +1020,7 @@
                 const standBottom = new THREE.Mesh(new THREE.BoxGeometry(0.5, 9.5, 0.2), standMat); standBottom.position.set(0, 4.75, 3);
                 deviceObject.add(standLeft, standRight, standTop, standBottom);
 
-                camera.position.set(0, 15, 8); controls.target.set(0, 15, 0);
+                camera.position.set(0, 12, 15); controls.target.set(0, 12, 0);
 
             } else if (currentDevice.id === 'mutoscopi') {
                 deviceObject.add(new THREE.Mesh(new THREE.BoxGeometry(3, 8, 3), darkWoodMat).translateY(-2));
