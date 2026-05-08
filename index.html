@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Història de l'Animació: Simuladors Òptics</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Inter', sans-serif; background-color: #1a202c; color: #e2e8f0; }
+        #app-container { display: flex; height: 100vh; width: 100vw; }
+        
+        #sidebar { width: 300px; flex-shrink: 0; background-color: #2d3748; padding: 20px; box-shadow: 2px 0 10px rgba(0,0,0,0.5); z-index: 10; display: flex; flex-direction: column; overflow-y: auto; }
+        #main-content { flex-grow: 1; display: flex; flex-direction: column; position: relative; min-width: 0; overflow: hidden; }
+        #canvas-container { flex-grow: 1; width: 100%; height: 65%; position: relative; }
+        
+        #editor-container { height: 35%; min-width: 0; background-color: #4a5568; padding: 15px; border-top: 2px solid #2d3748; display: flex; flex-direction: column; }
+        #frames-container { display: flex; overflow-x: auto; gap: 10px; padding: 10px 0; min-height: 120px; }
+        
+        .frame-canvas { border: 2px solid #718096; background-image: repeating-linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc), repeating-linear-gradient(45deg, #ccc 25%, #fff 25%, #fff 75%, #ccc 75%, #ccc); background-position: 0 0, 8px 8px; background-size: 16px 16px; cursor: pointer; border-radius: 4px; }
+        .frame-canvas:hover { border-color: #63b3ed; }
+        .frame-canvas.active { border-color: #4299e1; box-shadow: 0 0 8px #4299e1; }
+        
+        .info-section { margin-bottom: 20px; }
+        .info-title { font-size: 1.2rem; font-weight: bold; color: #63b3ed; margin-bottom: 5px; border-bottom: 1px solid #4a5568; padding-bottom: 5px; }
+        .info-text { font-size: 0.9rem; line-height: 1.4; color: #cbd5e0; }
+
+        #frames-container::-webkit-scrollbar { height: 8px; }
+        #frames-container::-webkit-scrollbar-track { background: #2d3748; border-radius: 4px; }
+        #frames-container::-webkit-scrollbar-thumb { background: #718096; border-radius: 4px; }
+
+        .btn { padding: 8px 16px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: all 0.2s; border: none; outline: none; }
+        .btn-primary { background-color: #4299e1; color: white; }
+        .btn-primary:hover { background-color: #3182ce; }
+        .btn-secondary { background-color: #4a5568; color: white; border: 1px solid #718096; }
+        .btn-secondary:hover { background-color: #2d3748; }
+        
+        .tool-btn { padding: 8px; border-radius: 4px; color: #cbd5e0; transition: all 0.1s; }
+        .tool-btn.active { background-color: #4299e1; color: white; }
+        .tool-btn:hover:not(.active) { background-color: #2d3748; }
+
+        .checkerboard-bg {
+            background-image: repeating-linear-gradient(45deg, #e2e8f0 25%, transparent 25%, transparent 75%, #e2e8f0 75%, #e2e8f0), repeating-linear-gradient(45deg, #e2e8f0 25%, #ffffff 25%, #ffffff 75%, #e2e8f0 75%, #e2e8f0);
+            background-position: 0 0, 10px 10px; background-size: 20px 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app-container">
+        <!-- Sidebar Navigation & Info -->
+        <div id="sidebar">
+            <h1 class="text-2xl font-bold mb-6 text-white text-center"><i class="fas fa-film mr-2"></i>Lab d'Animació</h1>
+            <div class="mb-6">
+                <label for="device-select" class="block text-sm font-medium text-gray-400 mb-2">Selecciona l'Aparell:</label>
+                <select id="device-select" class="w-full bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 block p-2.5">
+                    <option value="zootrop">Zootrop (1834)</option>
+                    <option value="praxinoscopi">Praxinoscopi (1877)</option>
+                    <option value="fenaquitiscopi">Fenaquitiscopi (1832)</option>
+                    <option value="mutoscopi">Mutoscopi (1894)</option>
+                    <option value="taumatrop">Taumatrop (1824)</option>
+                </select>
+            </div>
+            <div id="info-panel" class="flex-grow overflow-y-auto mb-4"></div>
+            
+            <div class="mt-auto border-t border-gray-600 pt-4">
+                <h3 class="text-sm font-bold text-gray-300 mb-2"><i class="fas fa-folder-open mr-2"></i>Llibreria d'Arxius</h3>
+                <div class="flex gap-2 mb-2">
+                    <button id="btn-load-file" class="btn btn-secondary flex-1 text-xs py-2"><i class="fas fa-upload"></i> Imatge</button>
+                    <button id="btn-load-folder" class="btn btn-secondary flex-1 text-xs py-2"><i class="fas fa-folder"></i> Carpeta</button>
+                </div>
+                <input type="file" id="file-upload" accept="image/*" class="hidden">
+                <input type="file" id="folder-upload" webkitdirectory directory multiple class="hidden">
+                <div id="gallery-container" class="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto mt-2 pr-1"></div>
+            </div>
+            
+            <div class="mt-4 border-t border-gray-600 pt-4">
+                <h3 class="text-sm font-bold text-gray-300 mb-2"><i class="fas fa-university mr-2"></i>Recursos</h3>
+                <ul class="text-xs text-blue-400 space-y-2">
+                    <li><a href="https://museudelcinema.girona.cat/cat/colleccio_objectes2.php?idcat=1102" target="_blank" class="hover:text-blue-300 flex items-center"><i class="fas fa-external-link-alt mr-2"></i> Museu del Cinema</a></li>
+                    <li><a href="https://museovirtual.filmoteca.unam.mx/" target="_blank" class="hover:text-blue-300 flex items-center"><i class="fas fa-external-link-alt mr-2"></i> Filmoteca UNAM</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Main Workspace -->
+        <div id="main-content">
+            <!-- 3D Canvas Container -->
+            <div id="canvas-container">
+                <!-- Controls de Reproducció i Velocitat -->
+                <div id="canvas-ui" class="absolute top-4 right-4 flex gap-2 z-10">
+                    <div class="flex items-center bg-gray-800 rounded px-3 py-1 border border-gray-600 gap-2">
+                        <i class="fas fa-tachometer-alt text-gray-400 text-sm" title="Velocitat"></i>
+                        <button id="btn-speed-down" class="text-gray-300 hover:text-white px-2 bg-gray-700 rounded font-bold">-</button>
+                        <input type="range" id="speed-slider" min="0" max="30" step="0.5" value="1.0" class="w-20">
+                        <button id="btn-speed-up" class="text-gray-300 hover:text-white px-2 bg-gray-700 rounded font-bold">+</button>
+                        <span id="speed-display" class="text-xs text-blue-300 font-mono w-8 text-right">1.0</span>
+                    </div>
+                    <button id="btn-play" class="btn btn-primary"><i class="fas fa-play mr-2"></i>Girar</button>
+                    <button id="btn-reset-cam" class="btn btn-secondary" title="Centrar càmera"><i class="fas fa-camera"></i></button>
+                </div>
+            </div>
+
+            <!-- Mini frames timeline -->
+            <div id="editor-container">
+                <div class="flex justify-between items-center mb-2">
+                    <h2 class="text-lg font-bold text-white"><i class="fas fa-film mr-2"></i>Tira d'Animació (Fes clic per editar)</h2>
+                    <button id="btn-save-strip" class="btn btn-secondary text-sm px-3 py-1"><i class="fas fa-download mr-1"></i>Desar Tira</button>
+                </div>
+                <div id="frames-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Editor -->
+    <div id="editor-modal" class="hidden fixed inset-0 bg-black bg-opacity-80 z-50 flex justify-center items-center backdrop-blur-sm">
+        <div class="bg-gray-800 p-6 rounded-lg flex flex-col w-11/12 max-w-5xl shadow-2xl border border-gray-700">
+            <!-- Modal Header -->
+            <div class="flex justify-between items-center mb-4">
+                <div class="flex items-center gap-4">
+                    <h3 class="text-2xl font-bold text-white">Edició de Fotograma</h3>
+                    <div class="flex bg-gray-700 rounded-lg overflow-hidden">
+                        <button id="btn-prev-frame" class="px-3 py-1 hover:bg-gray-600 text-white"><i class="fas fa-chevron-left"></i></button>
+                        <span class="px-4 py-1 font-mono text-lg bg-gray-900 text-blue-300" id="modal-frame-counter">1 / 12</span>
+                        <button id="btn-next-frame" class="px-3 py-1 hover:bg-gray-600 text-white"><i class="fas fa-chevron-right"></i></button>
+                    </div>
+                </div>
+                <button id="btn-close-modal" class="btn btn-primary"><i class="fas fa-check mr-2"></i>Aplicar i Tancar</button>
+            </div>
+
+            <div class="flex gap-4 w-full">
+                <!-- Barra d'eines Esquerra (Dibuix) -->
+                <div class="flex flex-col gap-2 bg-gray-900 p-3 rounded-lg border border-gray-700 w-24 flex-shrink-0">
+                    <button class="tool-btn active flex flex-col items-center gap-1" data-tool="brush" title="Pinzell"><i class="fas fa-paint-brush"></i><span class="text-[10px]">Pinzell</span></button>
+                    <button class="tool-btn flex flex-col items-center gap-1" data-tool="fill" title="Omplir (Cubell)"><i class="fas fa-fill-drip"></i><span class="text-[10px]">Omplir</span></button>
+                    <button class="tool-btn flex flex-col items-center gap-1" data-tool="circle" title="Cercle / Oval"><i class="far fa-circle"></i><span class="text-[10px]">Oval</span></button>
+                    <button class="tool-btn flex flex-col items-center gap-1" data-tool="square" title="Quadrat / Rectangle"><i class="far fa-square"></i><span class="text-[10px]">Rectangle</span></button>
+                    <button class="tool-btn flex flex-col items-center gap-1" data-tool="eraser" title="Esborrar"><i class="fas fa-eraser"></i><span class="text-[10px]">Esborrar</span></button>
+                    <button class="tool-btn flex flex-col items-center gap-1" data-tool="select" title="Seleccionar i Moure"><i class="fas fa-vector-square"></i><span class="text-[10px]">Moure</span></button>
+                    <button class="tool-btn flex flex-col items-center gap-1" data-tool="scale" title="Escalar"><i class="fas fa-expand-arrows-alt"></i><span class="text-[10px]">Escalar</span></button>
+                    
+                    <hr class="border-gray-700 my-1">
+                    
+                    <input type="color" id="modal-brush-color" class="w-full h-8 rounded cursor-pointer border-none p-0" value="#111111" title="Color">
+                    <input type="range" id="modal-brush-size" min="1" max="30" value="5" class="w-full mt-2" title="Mida">
+                </div>
+
+                <!-- Llenç Central amb Capes -->
+                <div id="canvas-stack" class="relative flex-grow checkerboard-bg rounded-lg border-2 border-gray-600 overflow-hidden flex items-center justify-center bg-[#1a202c]" style="height: 65vh;">
+                    <canvas id="onion-canvas" class="absolute opacity-30 pointer-events-none"></canvas>
+                    <canvas id="modal-canvas" class="absolute"></canvas>
+                    <canvas id="guide-canvas" class="absolute pointer-events-none opacity-50"></canvas>
+                    <canvas id="overlay-canvas" class="absolute"></canvas>
+                </div>
+
+                <!-- Barra d'eines Dreta (Accions) -->
+                <div class="flex flex-col gap-2 bg-gray-900 p-3 rounded-lg border border-gray-700 w-24 flex-shrink-0">
+                    <button id="btn-undo-modal" class="tool-btn flex flex-col items-center gap-1"><i class="fas fa-undo"></i><span class="text-[10px]">Desfer</span></button>
+                    <button id="btn-copy-modal" class="tool-btn flex flex-col items-center gap-1"><i class="fas fa-copy"></i><span class="text-[10px]">Copiar</span></button>
+                    <button id="btn-paste-modal" class="tool-btn flex flex-col items-center gap-1"><i class="fas fa-paste"></i><span class="text-[10px]">Enganxar</span></button>
+                    
+                    <hr class="border-gray-700 my-1">
+                    
+                    <button id="btn-import-modal" class="tool-btn flex flex-col items-center gap-1 text-green-400 hover:text-green-300"><i class="fas fa-file-import"></i><span class="text-[10px]">Importar</span></button>
+                    <input type="file" id="import-image-input" accept="image/*" class="hidden">
+                    
+                    <button id="btn-clear-modal" class="tool-btn flex flex-col items-center gap-1 text-red-400 hover:text-red-300"><i class="fas fa-trash"></i><span class="text-[10px]">Netejar</span></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const deviceData = {
+            zootrop: { id: 'zootrop', name: 'Zootrop', year: '1834', inventor: 'William George Horner', etymology: "Del grec <em>zoe</em> (vida) i <em>tropos</em> (gir). 'Roda de la vida'.", description: "Cilindre giratori amb escletxes verticals per on l'espectador mira cap a l'interior.", physics: "Es basa en l'<b>Efecte Phi</b> i el moviment beta. El cervell suma imatges lleugerament diferents creant la il·lusió de moviment continu. Les escletxes funcionen com un obturador que bloqueja l'esborrall visual entre fotogrames.", instructions: "Animació clàssica de 12 fotogrames en cicle.", numFrames: 12 },
+            praxinoscopi: { id: 'praxinoscopi', name: 'Praxinoscopi', year: '1877', inventor: 'Émile Reynaud', etymology: "Del grec <em>praxis</em> (acció) i <em>skopein</em> (observar). 'Observador de l'acció'.", description: "Evolució del zootrop que substitueix les escletxes per un prisma interior de miralls.", physics: "També usa l'<b>Efecte Phi</b>, però la reflexió dels miralls compensa el gir de la imatge de forma òptica. Ofereix una animació més estable i lluminosa sense pèrdua de llum.", instructions: "Animació de 12 fotogrames. La il·lusió es veu reflectida al centre de l'aparell.", numFrames: 12 },
+            fenaquitiscopi: { id: 'fenaquitiscopi', name: 'Fenaquitiscopi', year: '1832', inventor: 'Joseph Plateau', etymology: "Del grec <em>phenakizein</em> (enganyar) i <em>skopein</em> (observar). 'L'engany visual'.", description: "Un disc vertical giratori. L'usuari mira a través de les escletxes del suport cap al disc posterior.", physics: "Com el zootrop, la ranura funciona com un obturador mecànic curt. La persistència retiniana reté la llum per no veure foscor, i l'<b>Efecte Phi</b> genera el moviment cognitiu entre esquerdes.", instructions: "Dibuixa la seqüència. Mira a través de la ranura de fusta central per veure la il·lusió quan gira.", numFrames: 12 },
+            mutoscopi: { id: 'mutoscopi', name: 'Mutoscopi', year: '1894', inventor: 'Herman Casler', etymology: "Del llatí <em>mutare</em> (canviar) i el grec <em>skopein</em> (observar). 'Observador del canvi'.", description: "Dispositiu de visionat amb un rodet mecànic, similar a un llibret animat o 'flip-book' gegant.", physics: "Aprofita el <b>Moviment Beta</b> i l'Efecte Phi. La ràpida successió de targetes individuals opaques simula fluïdesa directament cap a l'espectador.", instructions: "Seqüència llarga de 24 fotogrames. Si vens de 12, es clona dues vegades.", numFrames: 24 },
+            taumatrop: { id: 'taumatrop', name: 'Taumatrop', year: '1824', inventor: 'John Ayrton Paris', etymology: "Del grec <em>thauma</em> (meravella) i <em>tropos</em> (gir). 'El gir meravellós'.", description: "Un simple disc amb un fil als extrems i un dibuix a cada cara.", physics: "Aquest és el cas més clar de <b>Persistència Retiniana</b> pura. La imatge A roman a la retina una fracció de segon mentre la imatge B ja està sent percebuda. Les dues es fusionen mentalment.", instructions: "Dibuixa un element a cada fotograma de manera que es complementin (ex: ocell i gàbia).", numFrames: 2 }
+        };
+
+        // Variables Globals
+        let currentDevice = deviceData.zootrop;
+        let isPlaying = false;
+        
+        let uiSpeed = 1.0; 
+        let rotationSpeed = 0.05; // Base calculada: uiSpeed * 0.05
+        let spinVelocity = 0; 
+        
+        let isDragging3D = false;
+        let previousMousePosition = { x: 0, y: 0 };
+        let frames = []; 
+        let activeFrameIndex = 0;
+        let userModifiedFrames = false;
+
+        // Three.js Core
+        let scene, camera, renderer, controls, deviceObject;
+        let animationStripTexture, mirrorTexture, stripCanvas, stripCtx, radialCanvas, radialCtx, radialTexture;
+        const raycaster = new THREE.Raycaster();
+        const mouseVector = new THREE.Vector2();
+
+        // Estats Modal i Eines
+        let isModalOpen = false;
+        let currentTool = 'brush'; 
+        let isDrawing = false;
+        let startX = 0, startY = 0;
+        let clipboardData = null; 
+        let undoStack = []; 
+        
+        let isSelecting = false;
+        let isDraggingSelection = false;
+        let isScaling = false;
+        let selRect = null; 
+        let selImgData = null;
+        let dragOffsetX = 0, dragOffsetY = 0;
+        let scaleStartRect = null;
+        let scaleTempCanvas = null;
+
+        // Referències de Llenç (Canvas) Modal
+        const modalCanvas = document.getElementById('modal-canvas');
+        const modalCtx = modalCanvas.getContext('2d', {willReadFrequently: true});
+        const onionCanvas = document.getElementById('onion-canvas');
+        const onionCtx = onionCanvas.getContext('2d');
+        const guideCanvas = document.getElementById('guide-canvas');
+        const guideCtx = guideCanvas.getContext('2d');
+        const overlayCanvas = document.getElementById('overlay-canvas');
+        const overlayCtx = overlayCanvas.getContext('2d', {willReadFrequently: true});
+        const snapshotCanvas = document.createElement('canvas');
+        const snapshotCtx = snapshotCanvas.getContext('2d', {willReadFrequently: true});
+
+        const uiFramesContainer = document.getElementById('frames-container');
+        const btnPlay = document.getElementById('btn-play');
+        const canvasContainer = document.getElementById('canvas-container');
+
+        function init() {
+            updateInfoPanel();
+            initEditor();
+            initThreeJS();
+            setupEventListeners();
+            setupModalEventListeners();
+            
+            // Provem de carregar directament el directori local de l'usuari "animacions"
+            tryLoadDefaultAssets();
+            animate();
+        }
+
+        function tryLoadDefaultAssets() {
+            const img = new Image();
+            img.onload = () => {
+                const fw = img.width / currentDevice.numFrames;
+                frames.forEach((canvas, i) => {
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, i*fw, 0, fw, img.height, 0, 0, canvas.width, canvas.height);
+                });
+                userModifiedFrames = true;
+                updateAnimationStrip();
+            };
+            img.onerror = () => {
+                createDefaultAnimation();
+                updateAnimationStrip();
+            };
+            img.src = 'animacions/strip.png';
+        }
+
+        function setupEventListeners() {
+            document.getElementById('device-select').addEventListener('change', (e) => {
+                const oldStrip = document.createElement('canvas');
+                oldStrip.width = stripCanvas.width;
+                oldStrip.height = stripCanvas.height;
+                oldStrip.getContext('2d').drawImage(stripCanvas, 0, 0);
+                const oldNumFrames = currentDevice.numFrames;
+
+                currentDevice = deviceData[e.target.value];
+                updateInfoPanel();
+                initEditor();
+                buildDevice3D();
+                
+                if (userModifiedFrames) {
+                    const fwOld = oldStrip.width / oldNumFrames;
+                    const fwNew = frames[0].width;
+                    const hNew = frames[0].height;
+
+                    if (oldNumFrames === currentDevice.numFrames) {
+                        for (let i = 0; i < currentDevice.numFrames; i++) {
+                            frames[i].getContext('2d').drawImage(oldStrip, i * fwOld, 0, fwOld, oldStrip.height, 0, 0, fwNew, hNew);
+                        }
+                    } else if (oldNumFrames === 12 && currentDevice.id === 'mutoscopi') {
+                        // Converteix intel·ligentment 12 a 24 duplicant el cicle
+                        for (let i = 0; i < 24; i++) {
+                            const originalFrameIndex = i % 12;
+                            frames[i].getContext('2d').drawImage(oldStrip, originalFrameIndex * fwOld, 0, fwOld, oldStrip.height, 0, 0, fwNew, hNew);
+                        }
+                    } else {
+                        // Formats completament incompatibles
+                        userModifiedFrames = false; 
+                        createDefaultAnimation();
+                    }
+                } else {
+                    createDefaultAnimation();
+                }
+                updateAnimationStrip();
+            });
+
+            btnPlay.addEventListener('click', () => {
+                isPlaying = !isPlaying;
+                updatePlayButtonUI();
+            });
+
+            document.getElementById('btn-reset-cam').addEventListener('click', () => {
+                if(currentDevice.id === 'fenaquitiscopi') {
+                    camera.position.set(0, 10.25, 7); controls.target.set(0, 10.25, 0);
+                } else if (currentDevice.id === 'mutoscopi') {
+                    camera.position.set(12, 8, 12); controls.target.set(0, 4, 0);
+                } else if (currentDevice.id === 'taumatrop') {
+                    camera.position.set(0, 5, 15); controls.target.set(0, 5, 0);
+                } else {
+                    camera.position.set(0, 15, 25); controls.target.set(0, 0, 0);
+                }
+                controls.update();
+            });
+
+            // Control de Velocitat (Salts de 0.5 fins a 30)
+            document.getElementById('btn-speed-up').addEventListener('click', () => { uiSpeed = Math.min(30.0, uiSpeed + 0.5); updateSpeedUI(); });
+            document.getElementById('btn-speed-down').addEventListener('click', () => { uiSpeed = Math.max(0.0, uiSpeed - 0.5); updateSpeedUI(); });
+            document.getElementById('speed-slider').addEventListener('input', (e) => { uiSpeed = parseFloat(e.target.value); updateSpeedUI(); });
+
+            document.getElementById('btn-save-strip').addEventListener('click', () => {
+                updateAnimationStrip();
+                const link = document.createElement('a');
+                link.download = `animacio_${currentDevice.id}_${Date.now()}.png`;
+                link.href = stripCanvas.toDataURL();
+                link.click();
+            });
+
+            document.getElementById('btn-load-file').addEventListener('click', () => document.getElementById('file-upload').click());
+            document.getElementById('file-upload').addEventListener('change', handleFileUpload);
+            
+            document.getElementById('btn-load-folder').addEventListener('click', () => document.getElementById('folder-upload').click());
+            document.getElementById('folder-upload').addEventListener('change', handleFolderUpload);
+
+            window.addEventListener('resize', onWindowResize, false);
+            setupRaycaster();
+        }
+
+        function updateSpeedUI() {
+            document.getElementById('speed-slider').value = uiSpeed;
+            document.getElementById('speed-display').innerText = uiSpeed.toFixed(1);
+            rotationSpeed = uiSpeed * 0.05; 
+        }
+
+        function updatePlayButtonUI() {
+            btnPlay.innerHTML = isPlaying ? '<i class="fas fa-pause mr-2"></i>Pausar' : '<i class="fas fa-play mr-2"></i>Girar';
+            if(isPlaying) btnPlay.classList.replace('btn-primary', 'btn-secondary');
+            else btnPlay.classList.replace('btn-secondary', 'btn-primary');
+        }
+
+        function initEditor() {
+            uiFramesContainer.innerHTML = '';
+            frames = [];
+            const frameWidth = currentDevice.id === 'taumatrop' ? 200 : 150;
+            const frameHeight = currentDevice.id === 'taumatrop' ? 200 : 200;
+
+            for (let i = 0; i < currentDevice.numFrames; i++) {
+                const canvas = document.createElement('canvas');
+                canvas.width = frameWidth; canvas.height = frameHeight;
+                canvas.className = 'frame-canvas flex-shrink-0';
+                canvas.style.width = '80px';
+                canvas.style.height = currentDevice.id === 'taumatrop' ? '80px' : '100px';
+                
+                canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+                canvas.addEventListener('click', () => openModal(i));
+                frames.push(canvas);
+                uiFramesContainer.appendChild(canvas);
+            }
+            updateActiveMiniFrameHighlight();
+        }
+
+        function updateActiveMiniFrameHighlight() {
+            frames.forEach((f, i) => { if (i === activeFrameIndex) f.classList.add('active'); else f.classList.remove('active'); });
+        }
+
+        function openModal(index) {
+            activeFrameIndex = index;
+            document.getElementById('modal-frame-counter').innerText = `${index + 1} / ${currentDevice.numFrames}`;
+            updateActiveMiniFrameHighlight();
+            
+            const w = frames[index].width; const h = frames[index].height;
+            modalCanvas.width = overlayCanvas.width = onionCanvas.width = snapshotCanvas.width = w;
+            modalCanvas.height = overlayCanvas.height = onionCanvas.height = snapshotCanvas.height = h;
+            
+            const container = document.getElementById('canvas-stack');
+            const cw = container.clientWidth - 40; const ch = container.clientHeight - 40;
+            const scale = Math.min(cw / w, ch / h);
+            const displayW = w * scale; const displayH = h * scale;
+
+            [modalCanvas, overlayCanvas, onionCanvas, guideCanvas].forEach(c => {
+                c.style.width = `${displayW}px`;
+                c.style.height = `${displayH}px`;
+            });
+
+            modalCtx.clearRect(0, 0, w, h);
+            modalCtx.drawImage(frames[index], 0, 0);
+            
+            onionCtx.clearRect(0, 0, w, h);
+            if (index > 0) onionCtx.drawImage(frames[index - 1], 0, 0);
+            else if (currentDevice.id === 'taumatrop') onionCtx.drawImage(frames[1], 0, 0); 
+            else onionCtx.drawImage(frames[currentDevice.numFrames - 1], 0, 0);
+
+            // Dibuixa els límits visuals al Modal (Cercles pel taumatrop, rectangles per la resta)
+            guideCanvas.width = w; guideCanvas.height = h;
+            guideCtx.clearRect(0, 0, w, h);
+            guideCtx.strokeStyle = '#4299e1'; 
+            guideCtx.lineWidth = 2;
+            guideCtx.setLineDash([6, 6]); 
+            guideCtx.beginPath();
+            if (currentDevice.id === 'taumatrop') guideCtx.arc(w / 2, h / 2, (w / 2) - 2, 0, Math.PI * 2);
+            else guideCtx.rect(2, 2, w - 4, h - 4);
+            guideCtx.stroke(); guideCtx.setLineDash([]);
+
+            undoStack = [];
+            saveUndoState();
+            commitSelection();
+            document.getElementById('editor-modal').classList.remove('hidden');
+            isModalOpen = true;
+        }
+
+        function saveUndoState() {
+            if(undoStack.length > 20) undoStack.shift();
+            undoStack.push(modalCtx.getImageData(0, 0, modalCanvas.width, modalCanvas.height));
+        }
+
+        function performUndo() {
+            if(undoStack.length > 0) {
+                commitSelection();
+                const state = undoStack.pop();
+                modalCtx.putImageData(state, 0, 0);
+                snapshotCtx.clearRect(0,0,modalCanvas.width, modalCanvas.height);
+                snapshotCtx.drawImage(modalCanvas, 0, 0);
+            }
+        }
+
+        function saveModalToFrame() {
+            commitSelection();
+            const ctx = frames[activeFrameIndex].getContext('2d');
+            ctx.clearRect(0, 0, frames[activeFrameIndex].width, frames[activeFrameIndex].height);
+            ctx.drawImage(modalCanvas, 0, 0);
+            userModifiedFrames = true;
+            updateAnimationStrip();
+        }
+
+        function closeModal() {
+            saveModalToFrame();
+            document.getElementById('editor-modal').classList.add('hidden');
+            isModalOpen = false;
+        }
+
+        function setupModalEventListeners() {
+            document.getElementById('btn-close-modal').addEventListener('click', closeModal);
+            document.getElementById('btn-prev-frame').addEventListener('click', () => { saveModalToFrame(); openModal((activeFrameIndex - 1 + currentDevice.numFrames) % currentDevice.numFrames); });
+            document.getElementById('btn-next-frame').addEventListener('click', () => { saveModalToFrame(); openModal((activeFrameIndex + 1) % currentDevice.numFrames); });
+
+            document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentTool = btn.dataset.tool;
+                    overlayCanvas.style.cursor = (currentTool === 'select' || currentTool === 'scale') ? 'crosshair' : (currentTool === 'eraser' ? 'cell' : 'crosshair');
+                    commitSelection();
+                });
+            });
+
+            document.getElementById('btn-undo-modal').addEventListener('click', performUndo);
+            document.getElementById('btn-clear-modal').addEventListener('click', () => { saveUndoState(); commitSelection(); modalCtx.clearRect(0, 0, modalCanvas.width, modalCanvas.height); });
+            document.getElementById('btn-copy-modal').addEventListener('click', () => {
+                commitSelection();
+                if (!clipboardData) clipboardData = document.createElement('canvas');
+                clipboardData.width = modalCanvas.width; clipboardData.height = modalCanvas.height;
+                clipboardData.getContext('2d').clearRect(0, 0, modalCanvas.width, modalCanvas.height);
+                clipboardData.getContext('2d').drawImage(modalCanvas, 0, 0);
+            });
+            document.getElementById('btn-paste-modal').addEventListener('click', () => {
+                commitSelection();
+                if (clipboardData) { saveUndoState(); modalCtx.drawImage(clipboardData, 0, 0); }
+            });
+
+            document.getElementById('btn-import-modal').addEventListener('click', () => document.getElementById('import-image-input').click());
+            document.getElementById('import-image-input').addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        saveUndoState(); commitSelection();
+                        const sX = modalCanvas.width / img.width; const sY = modalCanvas.height / img.height;
+                        const s = Math.min(sX, sY) * 0.9; 
+                        const nw = img.width * s; const nh = img.height * s;
+                        const nx = (modalCanvas.width - nw) / 2; const ny = (modalCanvas.height - nh) / 2;
+                        modalCtx.drawImage(img, nx, ny, nw, nh);
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file); e.target.value = '';
+            });
+
+            overlayCanvas.addEventListener('mousedown', onPointerDown);
+            overlayCanvas.addEventListener('mousemove', onPointerMove);
+            window.addEventListener('mouseup', onPointerUp);
+            overlayCanvas.addEventListener('touchstart', e => { e.preventDefault(); onPointerDown(e.touches[0]); }, {passive: false});
+            overlayCanvas.addEventListener('touchmove', e => { e.preventDefault(); onPointerMove(e.touches[0]); }, {passive: false});
+            window.addEventListener('touchend', onPointerUp);
+        }
+
+        function getMousePos(evt) {
+            const rect = overlayCanvas.getBoundingClientRect();
+            const scaleX = modalCanvas.width / rect.width;
+            const scaleY = modalCanvas.height / rect.height;
+            return { x: (evt.clientX - rect.left) * scaleX, y: (evt.clientY - rect.top) * scaleY };
+        }
+
+        function onPointerDown(e) {
+            if (!isModalOpen) return;
+            const pos = getMousePos(e);
+            startX = pos.x; startY = pos.y;
+
+            if (currentTool === 'fill') {
+                saveUndoState(); commitSelection();
+                floodFill(modalCanvas, Math.floor(startX), Math.floor(startY), document.getElementById('modal-brush-color').value);
+                return;
+            }
+
+            if (currentTool === 'select') {
+                if (selRect && pos.x >= selRect.x && pos.x <= selRect.x + selRect.w && pos.y >= selRect.y && pos.y <= selRect.y + selRect.h) {
+                    saveUndoState(); isDraggingSelection = true;
+                    dragOffsetX = pos.x - selRect.x; dragOffsetY = pos.y - selRect.y;
+                } else {
+                    commitSelection(); isSelecting = true;
+                    snapshotCtx.clearRect(0,0,modalCanvas.width, modalCanvas.height);
+                    snapshotCtx.drawImage(modalCanvas, 0, 0);
+                }
+                return;
+            }
+
+            if (currentTool === 'scale') {
+                saveUndoState();
+                if (!selRect || !selImgData) {
+                    selRect = {x: 0, y: 0, w: modalCanvas.width, h: modalCanvas.height};
+                    selImgData = modalCtx.getImageData(0, 0, selRect.w, selRect.h);
+                    snapshotCtx.clearRect(0,0,modalCanvas.width, modalCanvas.height);
+                }
+                isScaling = true;
+                scaleStartRect = {...selRect};
+                scaleTempCanvas = document.createElement('canvas');
+                scaleTempCanvas.width = selRect.w; scaleTempCanvas.height = selRect.h;
+                scaleTempCanvas.getContext('2d').putImageData(selImgData, 0, 0);
+                return;
+            }
+
+            saveUndoState(); commitSelection();
+            isDrawing = true;
+            snapshotCtx.clearRect(0,0,modalCanvas.width, modalCanvas.height);
+            snapshotCtx.drawImage(modalCanvas, 0, 0);
+            
+            if(currentTool === 'brush' || currentTool === 'eraser') {
+                modalCtx.beginPath(); modalCtx.moveTo(startX, startY);
+            }
+        }
+
+        function onPointerMove(e) {
+            if (!isModalOpen) return;
+            const pos = getMousePos(e);
+            
+            if (currentTool === 'scale' && isScaling) {
+                const dx = pos.x - startX;
+                let scaleFactor = 1 + (dx / 150); 
+                if(scaleFactor < 0.1) scaleFactor = 0.1;
+
+                selRect.w = scaleStartRect.w * scaleFactor;
+                selRect.h = scaleStartRect.h * scaleFactor;
+                selRect.x = scaleStartRect.x + (scaleStartRect.w - selRect.w)/2;
+                selRect.y = scaleStartRect.y + (scaleStartRect.h - selRect.h)/2;
+
+                modalCtx.clearRect(0,0, modalCanvas.width, modalCanvas.height);
+                modalCtx.drawImage(snapshotCanvas, 0, 0);
+                modalCtx.drawImage(scaleTempCanvas, selRect.x, selRect.y, selRect.w, selRect.h);
+                overlayCtx.clearRect(0,0, overlayCanvas.width, overlayCanvas.height);
+                drawDashedRect(overlayCtx, selRect.x, selRect.y, selRect.w, selRect.h);
+                return;
+            }
+
+            if (currentTool === 'select') {
+                if (isSelecting) {
+                    overlayCtx.clearRect(0,0, overlayCanvas.width, overlayCanvas.height);
+                    drawDashedRect(overlayCtx, startX, startY, pos.x - startX, pos.y - startY);
+                } else if (isDraggingSelection) {
+                    selRect.x = pos.x - dragOffsetX; selRect.y = pos.y - dragOffsetY;
+                    modalCtx.clearRect(0,0, modalCanvas.width, modalCanvas.height);
+                    modalCtx.drawImage(snapshotCanvas, 0, 0);
+                    modalCtx.putImageData(selImgData, selRect.x, selRect.y);
+                    overlayCtx.clearRect(0,0, overlayCanvas.width, overlayCanvas.height);
+                    drawDashedRect(overlayCtx, selRect.x, selRect.y, selRect.w, selRect.h);
+                }
+                return;
+            }
+
+            if (!isDrawing) return;
+
+            const color = document.getElementById('modal-brush-color').value;
+            const size = document.getElementById('modal-brush-size').value;
+
+            if (currentTool === 'brush' || currentTool === 'eraser') {
+                if (currentTool === 'eraser') modalCtx.globalCompositeOperation = 'destination-out';
+                modalCtx.strokeStyle = currentTool === 'eraser' ? 'rgba(0,0,0,1)' : color;
+                modalCtx.lineWidth = size; modalCtx.lineCap = 'round'; modalCtx.lineJoin = 'round';
+                modalCtx.lineTo(pos.x, pos.y); modalCtx.stroke();
+                if (currentTool === 'eraser') modalCtx.globalCompositeOperation = 'source-over';
+            } else if (currentTool === 'circle' || currentTool === 'square') {
+                modalCtx.clearRect(0,0, modalCanvas.width, modalCanvas.height);
+                modalCtx.drawImage(snapshotCanvas, 0, 0);
+                modalCtx.strokeStyle = color; modalCtx.lineWidth = size; modalCtx.beginPath();
+                
+                const w = pos.x - startX; const h = pos.y - startY;
+                if (currentTool === 'square') {
+                    modalCtx.rect(startX, startY, w, h);
+                } else if (currentTool === 'circle') {
+                    const rx = Math.abs(w / 2); const ry = Math.abs(h / 2);
+                    const cx = startX + w / 2; const cy = startY + h / 2;
+                    modalCtx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+                }
+                modalCtx.stroke();
+            }
+        }
+
+        function onPointerUp() {
+            if (!isModalOpen) return;
+            if (currentTool === 'scale') {
+                if(isScaling) {
+                    isScaling = false;
+                    selImgData = modalCtx.getImageData(selRect.x, selRect.y, selRect.w, selRect.h);
+                }
+                return;
+            }
+
+            if (currentTool === 'select') {
+                if (isSelecting) {
+                    isSelecting = false;
+                    const pos = getMousePos(event); 
+                    let w = pos.x - startX; let h = pos.y - startY;
+                    let rx = startX; let ry = startY;
+                    if(w < 0) { rx = pos.x; w = -w; } if(h < 0) { ry = pos.y; h = -h; }
+                    
+                    if (w > 5 && h > 5) {
+                        selRect = {x: rx, y: ry, w: w, h: h};
+                        selImgData = modalCtx.getImageData(rx, ry, w, h);
+                        snapshotCtx.clearRect(rx, ry, w, h);
+                        overlayCtx.clearRect(0,0, overlayCanvas.width, overlayCanvas.height);
+                        drawDashedRect(overlayCtx, rx, ry, w, h);
+                    } else { overlayCtx.clearRect(0,0, overlayCanvas.width, overlayCanvas.height); selRect = null; }
+                } else if (isDraggingSelection) { isDraggingSelection = false; }
+            } else if (isDrawing) { isDrawing = false; }
+        }
+
+        function commitSelection() {
+            if (selRect && selImgData) {
+                overlayCtx.clearRect(0,0, overlayCanvas.width, overlayCanvas.height);
+                selRect = null; selImgData = null;
+            }
+            if (isSelecting) { isSelecting = false; overlayCtx.clearRect(0,0, overlayCanvas.width, overlayCanvas.height); }
+            if (isScaling) { isScaling = false; }
+        }
+
+        function drawDashedRect(ctx, x, y, w, h) {
+            ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]); ctx.strokeRect(x, y, w, h);
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.lineDashOffset = 4; ctx.strokeRect(x, y, w, h);
+            ctx.setLineDash([]); 
+        }
+
+        function hexToRgba(hex) { const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16); return [r, g, b, 255]; }
+        function floodFill(canvas, startX, startY, fillColorHex) {
+            const ctx = canvas.getContext('2d');
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            const targetColor = hexToRgba(fillColorHex);
+            const startPos = (startY * canvas.width + startX) * 4;
+            const startColor = [data[startPos], data[startPos+1], data[startPos+2], data[startPos+3]];
+
+            if (startColor[0] === targetColor[0] && startColor[1] === targetColor[1] && startColor[2] === targetColor[2] && startColor[3] === targetColor[3]) return;
+            const match = (p) => data[p]===startColor[0] && data[p+1]===startColor[1] && data[p+2]===startColor[2] && data[p+3]===startColor[3];
+            const color = (p) => { data[p]=targetColor[0]; data[p+1]=targetColor[1]; data[p+2]=targetColor[2]; data[p+3]=targetColor[3]; };
+
+            const q = [[startX, startY]];
+            while (q.length > 0) {
+                const [x, y] = q.shift(); const p = (y * canvas.width + x) * 4;
+                if (x < 0 || x >= canvas.width || y < 0 || y >= canvas.height || !match(p)) continue;
+                color(p);
+                q.push([x+1, y]); q.push([x-1, y]); q.push([x, y+1]); q.push([x, y-1]);
+            }
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        function handleFileUpload(e) {
+            const file = e.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    const fw = img.width / currentDevice.numFrames;
+                    frames.forEach((canvas, i) => {
+                        const ctx = canvas.getContext('2d');
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(img, i*fw, 0, fw, img.height, 0, 0, canvas.width, canvas.height);
+                    });
+                    userModifiedFrames = true;
+                    updateAnimationStrip();
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file); e.target.value = ''; 
+        }
+
+        function handleFolderUpload(e) {
+            const files = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
+            const gallery = document.getElementById('gallery-container');
+            gallery.innerHTML = '';
+            files.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = document.createElement('img');
+                    img.src = event.target.result;
+                    img.className = 'w-full h-auto cursor-pointer rounded border border-gray-600 hover:border-blue-400';
+                    img.onclick = () => {
+                        const stripImg = new Image();
+                        stripImg.onload = () => {
+                            const fw = stripImg.width / currentDevice.numFrames;
+                            frames.forEach((canvas, i) => {
+                                const ctx = canvas.getContext('2d');
+                                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                                ctx.drawImage(stripImg, i*fw, 0, fw, stripImg.height, 0, 0, canvas.width, canvas.height);
+                            });
+                            userModifiedFrames = true;
+                            updateAnimationStrip();
+                        };
+                        stripImg.src = event.target.result;
+                    };
+                    gallery.appendChild(img);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function createDefaultAnimation() {
+            const numFrames = currentDevice.numFrames;
+            const w = frames[0].width; const h = frames[0].height;
+
+            frames.forEach((canvas, i) => {
+                const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, w, h);
+                if(currentDevice.id === 'taumatrop') {
+                    if(i===0) {
+                        ctx.strokeStyle = '#111'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(w/2, h/2, 60, 0, Math.PI, true);
+                        ctx.moveTo(w/2-60, h/2); ctx.lineTo(w/2-60, h/2+60); ctx.moveTo(w/2+60, h/2); ctx.lineTo(w/2+60, h/2+60);
+                        ctx.moveTo(w/2-60, h/2+60); ctx.lineTo(w/2+60, h/2+60);
+                        for(let line=w/2-45; line<=w/2+45; line+=20) { ctx.moveTo(line, h/2-55); ctx.lineTo(line, h/2+60); }
+                        ctx.stroke();
+                    } else {
+                        ctx.fillStyle = '#3182ce'; ctx.beginPath(); ctx.arc(w/2, h/2+15, 20, 0, Math.PI*2); ctx.fill();
+                        ctx.beginPath(); ctx.moveTo(w/2+20, h/2+15); ctx.lineTo(w/2+40, h/2); ctx.lineTo(w/2+20, h/2); ctx.fill();
+                    }
+                } else {
+                    const phase = (i / numFrames) * Math.PI * 2;
+                    const y = h - 30 - Math.abs(Math.sin(phase)) * (h - 60);
+                    ctx.fillStyle = '#e53e3e'; ctx.beginPath(); ctx.arc(w/2, y, 15, 0, Math.PI*2); ctx.fill();
+                    ctx.strokeStyle = '#111'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(10, h-10); ctx.lineTo(w-10, h-10); ctx.stroke();
+                }
+            });
+        }
+
+        function updateInfoPanel() {
+            document.getElementById('info-panel').innerHTML = `
+                <div class="info-section"><div class="info-title">Context i Inventor</div><div class="info-text"><strong>${currentDevice.inventor} (${currentDevice.year})</strong><br><span class="text-[12px] text-blue-300 italic mb-2 mt-1 block">${currentDevice.etymology}</span>${currentDevice.description}</div></div>
+                <div class="info-section"><div class="info-title">Fonament Òptic i Físic</div><div class="info-text">${currentDevice.physics}</div></div>
+            `;
+        }
+
+        function updateAnimationStrip() {
+            if(!frames || frames.length === 0) return;
+            const w = frames[0].width; const h = frames[0].height;
+            stripCanvas.width = w * frames.length; stripCanvas.height = h;
+
+            stripCtx.fillStyle = 'white'; stripCtx.fillRect(0, 0, stripCanvas.width, stripCanvas.height);
+            frames.forEach((canvas, i) => {
+                stripCtx.drawImage(canvas, i * w, 0);
+                if(currentDevice.id !== 'taumatrop') { stripCtx.strokeStyle = '#ddd'; stripCtx.strokeRect(i*w, 0, w, h); }
+            });
+
+            if(animationStripTexture) animationStripTexture.needsUpdate = true;
+            if(mirrorTexture) mirrorTexture.needsUpdate = true;
+
+            if (currentDevice.id === 'fenaquitiscopi') updateRadialTexture();
+            if (currentDevice.id === 'taumatrop') updateThaumatropeTextures();
+        }
+
+        function updateThaumatropeTextures() {
+            if (!deviceObject) return;
+            const rotor = deviceObject.children.find(c => c.userData.isRotor);
+            if (rotor && rotor.userData.texF && rotor.userData.texB) {
+                rotor.userData.texF.needsUpdate = true;
+                rotor.userData.texB.needsUpdate = true;
+            }
+        }
+
+        function updateRadialTexture() {
+            const size = 1024;
+            radialCanvas.width = size; radialCanvas.height = size;
+            radialCtx.clearRect(0, 0, size, size);
+            
+            // Fons del disc
+            radialCtx.fillStyle = '#e2e8f0'; 
+            radialCtx.beginPath(); 
+            radialCtx.arc(size/2, size/2, size/2-10, 0, Math.PI*2); 
+            radialCtx.fill();
+
+            const angleStep = (Math.PI*2) / frames.length;
+            const innerR = size * 0.15, outerR = size * 0.45;
+
+            // Retallem (fem transparents) les ranures perquè funcioni en 3D
+            radialCtx.globalCompositeOperation = 'destination-out';
+            for (let i = 0; i < frames.length; i++) {
+                radialCtx.save(); 
+                radialCtx.translate(size/2, size/2); 
+                radialCtx.rotate((i+0.5)*angleStep);
+                radialCtx.fillRect(-6, -outerR-15, 12, 60); 
+                radialCtx.restore();
+            }
+            radialCtx.globalCompositeOperation = 'source-over';
+
+            for (let i = 0; i < frames.length; i++) {
+                radialCtx.save(); 
+                radialCtx.translate(size/2, size/2); 
+                radialCtx.rotate(i*angleStep);
+                
+                const frameH = size * 0.16; 
+                const frameW = frameH * (frames[i].width / frames[i].height); 
+                const posY = -outerR + 50; 
+                
+                radialCtx.drawImage(frames[i], -frameW/2, posY, frameW, frameH);
+                radialCtx.restore();
+
+                radialCtx.save(); 
+                radialCtx.translate(size/2, size/2); 
+                radialCtx.rotate((i+0.5)*angleStep);
+                radialCtx.fillStyle = '#1a202c'; 
+                radialCtx.fillRect(-4, -outerR-10, 8, 40);
+                radialCtx.restore();
+            }
+            if(radialTexture) radialTexture.needsUpdate = true;
+        }
+
+        function initThreeJS() {
+            let width = canvasContainer.clientWidth; if(width===0) width = 800;
+            let height = canvasContainer.clientHeight; if(height===0) height = 600;
+            
+            scene = new THREE.Scene(); scene.background = new THREE.Color('#1a202c');
+            camera = new THREE.PerspectiveCamera(45, width/height, 0.1, 1000); camera.position.set(0, 15, 25);
+            renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setSize(width, height);
+            renderer.shadowMap.enabled = true; canvasContainer.appendChild(renderer.domElement);
+            controls = new THREE.OrbitControls(camera, renderer.domElement); controls.enableDamping = true;
+
+            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8); dirLight.position.set(10, 20, 10); dirLight.castShadow = true; scene.add(dirLight);
+            
+            const floor = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshStandardMaterial({color: 0x2d3748}));
+            floor.rotation.x = -Math.PI/2; floor.position.y = -5; floor.receiveShadow = true; scene.add(floor);
+
+            stripCanvas = document.createElement('canvas'); stripCtx = stripCanvas.getContext('2d');
+            animationStripTexture = new THREE.CanvasTexture(stripCanvas); 
+            animationStripTexture.minFilter = THREE.LinearFilter;
+            
+            // Textura especial Mirall pel Praxinoscopi (flip horitzontal complet per la reflexió perfecta)
+            mirrorTexture = new THREE.CanvasTexture(stripCanvas);
+            mirrorTexture.minFilter = THREE.LinearFilter;
+            mirrorTexture.wrapS = THREE.RepeatWrapping;
+            mirrorTexture.repeat.set(-1, 1);
+
+            radialCanvas = document.createElement('canvas'); radialCtx = radialCanvas.getContext('2d');
+            radialTexture = new THREE.CanvasTexture(radialCanvas); radialTexture.minFilter = THREE.LinearFilter;
+
+            buildDevice3D();
+        }
+
+        function buildDevice3D() {
+            if (deviceObject) scene.remove(deviceObject);
+            deviceObject = new THREE.Group();
+            const woodMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b }), darkWoodMat = new THREE.MeshStandardMaterial({ color: 0x3d2314 }), metalMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa }), blackMat = new THREE.MeshStandardMaterial({ color: 0x111111, side: THREE.DoubleSide });
+
+            if (currentDevice.id === 'zootrop') {
+                deviceObject.add(new THREE.Mesh(new THREE.CylinderGeometry(4, 5, 1, 32), darkWoodMat).translateY(-4.5));
+                deviceObject.add(new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 9, 16), metalMat).translateY(-0.5));
+                const drum = new THREE.Group(); drum.position.y = 4;
+                drum.add(new THREE.Mesh(new THREE.CylinderGeometry(10, 10, 0.5, 32), woodMat));
+                
+                const stripMesh = new THREE.Mesh(new THREE.CylinderGeometry(9.4, 9.4, 6, 64, 1, true), new THREE.MeshBasicMaterial({ map: animationStripTexture, side: THREE.BackSide }));
+                stripMesh.position.y = 3; drum.add(stripMesh);
+                animationStripTexture.repeat.set(1, 1);
+
+                for(let i=0; i<currentDevice.numFrames; i++) {
+                    const angle = (Math.PI*2) / currentDevice.numFrames;
+                    const seg = new THREE.Mesh(new THREE.CylinderGeometry(10, 9.5, 8, 8, 1, false, i*angle + 0.04, angle - 0.08), blackMat);
+                    seg.position.y = 4; drum.add(seg);
+                }
+                deviceObject.add(drum); camera.position.set(0, 12, 18); controls.target.set(0, 4, 0);
+
+            } else if (currentDevice.id === 'praxinoscopi') {
+                deviceObject.add(new THREE.Mesh(new THREE.CylinderGeometry(13, 14, 1, 32), woodMat).translateY(-0.5));
+                const rotor = new THREE.Group(); rotor.add(new THREE.Mesh(new THREE.CylinderGeometry(12, 12, 0.5, 32), darkWoodMat));
+                
+                const stripMesh = new THREE.Mesh(new THREE.CylinderGeometry(11.5, 11.5, 6, 64, 1, true), new THREE.MeshBasicMaterial({ map: animationStripTexture, side: THREE.BackSide }));
+                stripMesh.position.y = 3; rotor.add(stripMesh);
+
+                const pillar = new THREE.Mesh(new THREE.CylinderGeometry(4.6, 4.6, 6, currentDevice.numFrames), blackMat);
+                pillar.position.y = 3; rotor.add(pillar);
+
+                // Prisma amb la textura mirrorTexture configurada amb reflectX per simular un mirall realista
+                const prismHeight = 3.4; 
+                const prismMat = new THREE.MeshBasicMaterial({ map: mirrorTexture });
+                const prism = new THREE.Mesh(new THREE.CylinderGeometry(4.8, 4.8, prismHeight, currentDevice.numFrames), [prismMat, darkWoodMat, darkWoodMat]);
+                prism.position.y = 3; 
+                prism.rotation.y = Math.PI / currentDevice.numFrames; 
+                rotor.add(prism);
+                
+                deviceObject.add(rotor); camera.position.set(0, 15, 20); controls.target.set(0, 3, 0);
+
+            } else if (currentDevice.id === 'fenaquitiscopi') {
+                deviceObject.add(new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 12, 16), darkWoodMat).translateY(-2));
+                
+                const rotor = new THREE.Group(); rotor.position.y = 5; rotor.userData.isRotor = true;
+                const fenaqTexMat = new THREE.MeshBasicMaterial({ map: radialTexture, transparent: true, alphaTest: 0.1, side: THREE.DoubleSide });
+                rotor.add(new THREE.Mesh(new THREE.CircleGeometry(8, 64), fenaqTexMat));
+                deviceObject.add(rotor); 
+                
+                // Suport visual vertical on recolza l'ull (amb escletxa per veure l'animació per l'efecte stroboscòpic)
+                const standMat = new THREE.MeshStandardMaterial({color: 0x5c4033});
+                const standLeft = new THREE.Mesh(new THREE.BoxGeometry(3.75, 16, 0.2), standMat); standLeft.position.set(-2.125, 8, 3);
+                const standRight = new THREE.Mesh(new THREE.BoxGeometry(3.75, 16, 0.2), standMat); standRight.position.set(2.125, 8, 3);
+                const standTop = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, 0.2), standMat); standTop.position.set(0, 14, 3);
+                const standBottom = new THREE.Mesh(new THREE.BoxGeometry(0.5, 8.5, 0.2), standMat); standBottom.position.set(0, 4.25, 3);
+                deviceObject.add(standLeft, standRight, standTop, standBottom);
+
+                camera.position.set(0, 10.25, 7); controls.target.set(0, 10.25, 0);
+
+            } else if (currentDevice.id === 'mutoscopi') {
+                deviceObject.add(new THREE.Mesh(new THREE.BoxGeometry(3, 8, 3), darkWoodMat).translateY(-2));
+                const rotor = new THREE.Group(); rotor.position.y = 4; rotor.userData.isRotor = true;
+                const axis = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 5, 16), metalMat); axis.rotation.z = Math.PI/2; rotor.add(axis);
+                
+                for(let i=0; i<currentDevice.numFrames; i++) {
+                    const mat = new THREE.MeshBasicMaterial({ map: animationStripTexture.clone(), side: THREE.DoubleSide });
+                    mat.map.repeat.set(1/currentDevice.numFrames, 1); mat.map.offset.set(i/currentDevice.numFrames, 0); mat.map.needsUpdate = true;
+                    const card = new THREE.Mesh(new THREE.PlaneGeometry(3, 4).translate(0,2,0), mat); card.position.y = 1.2;
+                    const anchor = new THREE.Group(); anchor.rotation.x = (i/currentDevice.numFrames)*Math.PI*2; anchor.add(card); rotor.add(anchor);
+                }
+                deviceObject.add(rotor); camera.position.set(12, 8, 12); controls.target.set(0, 4, 0);
+
+            } else if (currentDevice.id === 'taumatrop') {
+                const rotor = new THREE.Group(); rotor.position.y = 5; rotor.userData.isRotor = true;
+                
+                const hitbox = new THREE.Mesh(new THREE.SphereGeometry(6, 16, 16), new THREE.MeshBasicMaterial({visible: false}));
+                rotor.add(hitbox);
+
+                const texF = animationStripTexture.clone(); texF.repeat.set(0.5,1); texF.needsUpdate=true;
+                const texB = animationStripTexture.clone(); texB.repeat.set(0.5,1); texB.offset.set(0.5,0); texB.needsUpdate=true;
+                
+                rotor.userData.texF = texF; rotor.userData.texB = texB;
+
+                rotor.add(new THREE.Mesh(new THREE.CircleGeometry(5, 64), new THREE.MeshBasicMaterial({map: texF})));
+                const back = new THREE.Mesh(new THREE.CircleGeometry(5, 64), new THREE.MeshBasicMaterial({map: texB})); 
+                back.rotation.x = Math.PI; rotor.add(back);
+                
+                const strMat = new THREE.LineBasicMaterial({color: 0xaa});
+                rotor.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-5,0,0), new THREE.Vector3(-10,0,0)]), strMat));
+                rotor.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(5,0,0), new THREE.Vector3(10,0,0)]), strMat));
+                deviceObject.add(rotor); camera.position.set(0, 5, 15); controls.target.set(0, 5, 0);
+            }
+            scene.add(deviceObject);
+        }
+
+        function onWindowResize() { 
+            camera.aspect = canvasContainer.clientWidth / canvasContainer.clientHeight; 
+            camera.updateProjectionMatrix(); 
+            renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight); 
+        }
+
+        function setupRaycaster() {
+            canvasContainer.addEventListener('mousedown', (e) => {
+                if(e.target !== renderer.domElement) return;
+                const rect = renderer.domElement.getBoundingClientRect();
+                mouseVector.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                mouseVector.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+                
+                raycaster.setFromCamera(mouseVector, camera);
+                const intersects = raycaster.intersectObjects(deviceObject.children, true);
+                
+                if (intersects.length > 0) {
+                    isDragging3D = true;
+                    controls.enabled = false;
+                    previousMousePosition = { x: e.clientX, y: e.clientY };
+                    isPlaying = false; updatePlayButtonUI();
+                }
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (isDragging3D) {
+                    const deltaX = e.clientX - previousMousePosition.x;
+                    const deltaY = e.clientY - previousMousePosition.y;
+                    previousMousePosition = { x: e.clientX, y: e.clientY };
+                    
+                    if (currentDevice.id === 'fenaquitiscopi') spinVelocity = deltaY * 0.005 + deltaX * 0.005;
+                    else if (currentDevice.id === 'taumatrop' || currentDevice.id === 'mutoscopi') spinVelocity = deltaY * 0.01 + deltaX * 0.01;
+                    else spinVelocity = deltaX * 0.01;
+                    
+                    applyRotation(spinVelocity);
+                }
+            });
+
+            window.addEventListener('mouseup', () => {
+                if (isDragging3D) { isDragging3D = false; controls.enabled = true; }
+            });
+        }
+
+        function applyRotation(amount) {
+            if (!deviceObject) return;
+            let r = deviceObject.children.find(c => c.type === 'Group' || c.userData.isRotor) || deviceObject.children[0];
+            if(currentDevice.id === 'fenaquitiscopi') r.rotation.z -= amount;
+            else if(currentDevice.id === 'mutoscopi' || currentDevice.id === 'taumatrop') r.rotation.x += (currentDevice.id === 'taumatrop' ? amount * 5 : -amount);
+            else r.rotation.y += amount; 
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (isPlaying) {
+                spinVelocity = rotationSpeed;
+                applyRotation(spinVelocity);
+            } else if (!isDragging3D) {
+                if (Math.abs(spinVelocity) > 0.0001) {
+                    applyRotation(spinVelocity);
+                    spinVelocity *= 0.99; 
+                } else {
+                    spinVelocity = 0;
+                }
+            }
+            controls.update(); renderer.render(scene, camera);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
