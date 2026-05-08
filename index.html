@@ -48,18 +48,21 @@
     </style>
 </head>
 <body>
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
     <div id="app-container">
         <!-- Sidebar Navigation & Info -->
         <div id="sidebar">
             <h1 class="text-2xl font-bold mb-6 text-white text-center"><i class="fas fa-film mr-2"></i>Lab d'Animació</h1>
             <div class="mb-4">
-                <label for="device-select" class="block text-sm font-medium text-gray-400 mb-2">Selecciona l'Aparell:</label>
+                <label for="device-select" class="block text-sm font-medium text-gray-400 mb-2">Selecciona l'Aparell (Cronològic):</label>
                 <select id="device-select" class="w-full bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 block p-2.5">
+                    <option value="taumatrop">Taumatrop (1824)</option>
+                    <option value="fenaquitiscopi">Fenaquitiscopi (1832)</option>
                     <option value="zootrop">Zootrop (1834)</option>
                     <option value="praxinoscopi">Praxinoscopi (1877)</option>
-                    <option value="fenaquitiscopi">Fenaquitiscopi (1832)</option>
                     <option value="mutoscopi">Mutoscopi (1894)</option>
-                    <option value="taumatrop">Taumatrop (1824)</option>
                 </select>
             </div>
             <div id="info-panel" class="flex-grow overflow-y-auto mb-4"></div>
@@ -92,6 +95,12 @@
                     <li><a href="https://museovirtual.filmoteca.unam.mx/" target="_blank" class="hover:text-blue-300 flex items-center"><i class="fas fa-external-link-alt mr-2"></i> Filmoteca UNAM</a></li>
                 </ul>
             </div>
+            
+            <!-- Peu de pàgina -->
+            <div class="mt-8 border-t border-gray-700 pt-4 text-center text-[10px] text-gray-500 leading-relaxed">
+                <p>Una creació de Xavier Ribes</p>
+                <p>Departament de Comunicació Audiovisual i Publicitat de la UAB</p>
+            </div>
         </div>
 
         <!-- Main Workspace -->
@@ -102,9 +111,9 @@
                 <div id="canvas-ui" class="absolute top-4 right-4 flex gap-2 z-10">
                     <div class="flex items-center bg-gray-800 rounded px-3 py-1 border border-gray-600 gap-2">
                         <i class="fas fa-tachometer-alt text-gray-400 text-sm" title="Velocitat"></i>
-                        <button id="btn-speed-down" class="text-gray-300 hover:text-white px-2 bg-gray-700 rounded font-bold">-</button>
-                        <input type="range" id="speed-slider" min="0" max="30" step="0.1" value="1.0" class="w-20">
-                        <button id="btn-speed-up" class="text-gray-300 hover:text-white px-2 bg-gray-700 rounded font-bold">+</button>
+                        <button id="btn-speed-down" class="text-gray-300 hover:text-white px-2 bg-gray-700 rounded font-bold hover:bg-gray-600 transition-colors">-</button>
+                        <input type="range" id="speed-slider" min="0" max="30" step="0.1" value="1.0" class="w-24">
+                        <button id="btn-speed-up" class="text-gray-300 hover:text-white px-2 bg-gray-700 rounded font-bold hover:bg-gray-600 transition-colors">+</button>
                         <span id="speed-display" class="text-xs text-blue-300 font-mono w-8 text-right">1.0</span>
                     </div>
                     <button id="btn-play" class="btn btn-primary"><i class="fas fa-play mr-2"></i>Girar</button>
@@ -140,7 +149,7 @@
             </div>
 
             <div class="flex gap-4 w-full">
-                <!-- Barra d'eines Esquerra (Dibuix) -->
+                <!-- Barra d'eines Esquerra (Dibuix i Eines) -->
                 <div class="flex flex-col gap-2 bg-gray-900 p-3 rounded-lg border border-gray-700 w-24 flex-shrink-0">
                     <button class="tool-btn active flex flex-col items-center gap-1" data-tool="brush" title="Pinzell"><i class="fas fa-paint-brush"></i><span class="text-[10px]">Pinzell</span></button>
                     <button class="tool-btn flex flex-col items-center gap-1" data-tool="fill" title="Omplir (Cubell)"><i class="fas fa-fill-drip"></i><span class="text-[10px]">Omplir</span></button>
@@ -160,11 +169,12 @@
                 <div id="canvas-stack" class="relative flex-grow checkerboard-bg rounded-lg border-2 border-gray-600 overflow-hidden flex items-center justify-center bg-[#1a202c]" style="height: 65vh;">
                     <canvas id="onion-canvas" class="absolute opacity-30 pointer-events-none"></canvas>
                     <canvas id="modal-canvas" class="absolute"></canvas>
+                    <!-- Guia visual blava (pointer-events-none) -->
                     <canvas id="guide-canvas" class="absolute pointer-events-none opacity-50"></canvas>
                     <canvas id="overlay-canvas" class="absolute"></canvas>
                 </div>
 
-                <!-- Barra d'eines Dreta (Accions) -->
+                <!-- Barra d'eines Dreta (Accions de Fitxer/Capa) -->
                 <div class="flex flex-col gap-2 bg-gray-900 p-3 rounded-lg border border-gray-700 w-24 flex-shrink-0">
                     <button id="btn-undo-modal" class="tool-btn flex flex-col items-center gap-1"><i class="fas fa-undo"></i><span class="text-[10px]">Desfer</span></button>
                     <button id="btn-copy-modal" class="tool-btn flex flex-col items-center gap-1"><i class="fas fa-copy"></i><span class="text-[10px]">Copiar</span></button>
@@ -183,22 +193,23 @@
 
     <script>
         const deviceData = {
+            taumatrop: { id: 'taumatrop', name: 'Taumatrop', year: '1824', inventor: 'John Ayrton Paris', etymology: "Del grec <em>thauma</em> (meravella) i <em>tropos</em> (gir). 'El gir meravellós'.", description: "Un simple disc amb un fil als extrems i un dibuix a cada cara.", physics: "Aquest és el cas més clar de <b>Persistència Retiniana</b> pura. La imatge A roman a la retina una fracció de segon mentre la imatge B ja està sent percebuda. Les dues es fusionen mentalment.", instructions: "Dibuixa un element a cada fotograma de manera que es complementin (ex: ocell i gàbia).", numFrames: 2 },
+            fenaquitiscopi: { id: 'fenaquitiscopi', name: 'Fenaquitiscopi', year: '1832', inventor: 'Joseph Plateau', etymology: "Del grec <em>phenakizein</em> (enganyar) i <em>skopein</em> (observar). 'L'engany visual'.", description: "Un disc vertical giratori. L'usuari mira a través de les escletxes del suport cap al disc posterior.", physics: "Com el zootrop, la ranura funciona com un obturador mecànic curt. La persistència retiniana reté la llum per no veure foscor, i l'<b>Efecte Phi</b> genera el moviment cognitiu entre esquerdes.", instructions: "Dibuixa la seqüència. Mira a través de la ranura de fusta central per veure la il·lusió quan gira.", numFrames: 12 },
             zootrop: { id: 'zootrop', name: 'Zootrop', year: '1834', inventor: 'William George Horner', etymology: "Del grec <em>zoe</em> (vida) i <em>tropos</em> (gir). 'Roda de la vida'.", description: "Cilindre giratori amb escletxes verticals per on l'espectador mira cap a l'interior.", physics: "Es basa en l'<b>Efecte Phi</b> i el moviment beta. El cervell suma imatges lleugerament diferents creant la il·lusió de moviment continu. Les escletxes funcionen com un obturador que bloqueja l'esborrall visual entre fotogrames.", instructions: "Animació clàssica de 12 fotogrames en cicle.", numFrames: 12 },
             praxinoscopi: { id: 'praxinoscopi', name: 'Praxinoscopi', year: '1877', inventor: 'Émile Reynaud', etymology: "Del grec <em>praxis</em> (acció) i <em>skopein</em> (observar). 'Observador de l'acció'.", description: "Evolució del zootrop que substitueix les escletxes per un prisma interior de miralls.", physics: "També usa l'<b>Efecte Phi</b>, però la reflexió dels miralls compensa el gir de la imatge de forma òptica. Ofereix una animació més estable i lluminosa sense pèrdua de llum.", instructions: "Animació de 12 fotogrames. La il·lusió es veu reflectida al centre de l'aparell.", numFrames: 12 },
-            fenaquitiscopi: { id: 'fenaquitiscopi', name: 'Fenaquitiscopi', year: '1832', inventor: 'Joseph Plateau', etymology: "Del grec <em>phenakizein</em> (enganyar) i <em>skopein</em> (observar). 'L'engany visual'.", description: "Un disc vertical giratori. L'usuari mira a través de les escletxes del suport cap al disc posterior.", physics: "Com el zootrop, la ranura funciona com un obturador mecànic curt. La persistència retiniana reté la llum per no veure foscor, i l'<b>Efecte Phi</b> genera el moviment cognitiu entre esquerdes.", instructions: "Dibuixa la seqüència. Mira a través de la ranura de fusta central per veure la il·lusió quan gira.", numFrames: 12 },
-            mutoscopi: { id: 'mutoscopi', name: 'Mutoscopi', year: '1894', inventor: 'Herman Casler', etymology: "Del llatí <em>mutare</em> (canviar) i el grec <em>skopein</em> (observar). 'Observador del canvi'.", description: "Dispositiu de visionat amb un rodet mecànic, similar a un llibret animat o 'flip-book' gegant.", physics: "Aprofita el <b>Moviment Beta</b> i l'Efecte Phi. La ràpida successió de targetes individuals opaques simula fluïdesa directament cap a l'espectador.", instructions: "Seqüència llarga de 24 fotogrames. Si vens de 12, es clona dues vegades.", numFrames: 24 },
-            taumatrop: { id: 'taumatrop', name: 'Taumatrop', year: '1824', inventor: 'John Ayrton Paris', etymology: "Del grec <em>thauma</em> (meravella) i <em>tropos</em> (gir). 'El gir meravellós'.", description: "Un simple disc amb un fil als extrems i un dibuix a cada cara.", physics: "Aquest és el cas més clar de <b>Persistència Retiniana</b> pura. La imatge A roman a la retina una fracció de segon mentre la imatge B ja està sent percebuda. Les dues es fusionen mentalment.", instructions: "Dibuixa un element a cada fotograma de manera que es complementin (ex: ocell i gàbia).", numFrames: 2 }
+            mutoscopi: { id: 'mutoscopi', name: 'Mutoscopi', year: '1894', inventor: 'Herman Casler', etymology: "Del llatí <em>mutare</em> (canviar) i el grec <em>skopein</em> (observar). 'Observador del canvi'.", description: "Dispositiu de visionat amb un rodet mecànic, similar a un llibret animat o 'flip-book' gegant.", physics: "Aprofita el <b>Moviment Beta</b> i l'Efecte Phi. La ràpida successió de targetes individuals opaques simula fluïdesa directament cap a l'espectador.", instructions: "Seqüència llarga de 24 fotogrames. Si vens de 12, es clona dues vegades.", numFrames: 24 }
         };
 
-        let currentDevice = deviceData.zootrop;
+        let currentDevice = deviceData.taumatrop;
         let isPlaying = false;
         
+        // Físiques de rotació i inèrcia
         let uiSpeed = 1.0; 
         let rotationSpeed = 0.05; 
         let spinVelocity = 0; 
-        
         let isDragging3D = false;
         let previousMousePosition = { x: 0, y: 0 };
+        
         let frames = []; 
         let activeFrameIndex = 0;
         let userModifiedFrames = false;
@@ -208,6 +219,7 @@
         const raycaster = new THREE.Raycaster();
         const mouseVector = new THREE.Vector2();
 
+        // Variables del Modal i Eines
         let isModalOpen = false;
         let currentTool = 'brush'; 
         let isDrawing = false;
@@ -240,20 +252,36 @@
         const canvasContainer = document.getElementById('canvas-container');
 
         function init() {
+            // Assegurem que l'HTML mostra el dispositiu correcte al dropdown inicialment
+            document.getElementById('device-select').value = "taumatrop";
             updateInfoPanel();
             initEditor();
             initThreeJS();
             setupEventListeners();
             setupModalEventListeners();
             
-            // Fetch assets from Github initially
             loadGitHubAssets();
             animate();
         }
 
+        function showToastMessage(msg) {
+            const toastContainer = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'bg-red-600 text-white px-6 py-3 rounded-lg shadow-2xl font-bold border border-red-400 transition-opacity duration-300 opacity-0';
+            toast.innerHTML = `<i class="fas fa-exclamation-triangle mr-2"></i> ${msg}`;
+            toastContainer.appendChild(toast);
+            
+            requestAnimationFrame(() => toast.classList.remove('opacity-0'));
+            
+            setTimeout(() => {
+                toast.classList.add('opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
         async function loadGitHubAssets() {
             try {
-                // Fetch animations to fill the gallery
+                // Fetch animations
                 const animUrl = 'https://api.github.com/repos/xaviuab/joguines_optiques/contents/animacions';
                 const animRes = await fetch(animUrl);
                 if (animRes.ok) {
@@ -267,28 +295,20 @@
                             img.src = file.download_url; // Raw URL
                             img.className = 'w-full h-auto cursor-pointer rounded border border-gray-600 hover:border-blue-400 object-cover';
                             img.title = file.name;
-                            img.crossOrigin = "Anonymous"; // Permet llegir la imatge al canvas per desar i manipular
+                            img.crossOrigin = "Anonymous";
                             
                             img.onclick = () => {
-                                const stripImg = new Image();
-                                stripImg.crossOrigin = "Anonymous";
-                                stripImg.onload = () => {
-                                    const fw = stripImg.width / currentDevice.numFrames;
-                                    frames.forEach((canvas, i) => {
-                                        const ctx = canvas.getContext('2d');
-                                        ctx.clearRect(0, 0, canvas.width, canvas.height);
-                                        ctx.drawImage(stripImg, i*fw, 0, fw, stripImg.height, 0, 0, canvas.width, canvas.height);
-                                    });
-                                    userModifiedFrames = true;
-                                    updateAnimationStrip();
-                                };
-                                stripImg.src = file.download_url;
+                                validateAndLoadImage(file.name, file.download_url);
                             };
                             gallery.appendChild(img);
 
-                            // Auto-carregar la primera (strip.png si existeix)
-                            if(file.name === 'strip.png' && !userModifiedFrames) {
-                                img.click(); 
+                            // Auto-carrega inicial només si no hem modificat res encara
+                            if(!userModifiedFrames) {
+                                if (currentDevice.id === 'taumatrop' && file.name.startsWith('2_')) {
+                                    img.click();
+                                } else if (currentDevice.id !== 'taumatrop' && file.name.startsWith('12_')) {
+                                    img.click();
+                                }
                             }
                         }
                     });
@@ -322,6 +342,55 @@
             }
         }
 
+        function validateAndLoadImage(filename, imageUrl) {
+            const is12 = filename.startsWith('12_');
+            const is2 = filename.startsWith('2_');
+            const is24 = filename.startsWith('24_');
+
+            let valid = true;
+            let errMsg = "";
+
+            if (is2 && currentDevice.id !== 'taumatrop') {
+                valid = false; errMsg = "Aquesta imatge (2 fotogrames) només és compatible amb el Taumatrop.";
+            } else if (is24 && currentDevice.id !== 'mutoscopi') {
+                valid = false; errMsg = "Aquesta imatge (24 fotogrames) només és compatible amb el Mutoscopi.";
+            } else if (is12 && currentDevice.id === 'taumatrop') {
+                valid = false; errMsg = "Aquesta imatge (12 fotogrames) no és compatible amb el Taumatrop.";
+            }
+
+            if (!valid) {
+                showToastMessage(errMsg);
+                return;
+            }
+
+            const stripImg = new Image();
+            stripImg.crossOrigin = "Anonymous";
+            stripImg.onload = () => {
+                let numSourceFrames = currentDevice.numFrames; // Fallback
+                if (is12) numSourceFrames = 12;
+                if (is2) numSourceFrames = 2;
+                if (is24) numSourceFrames = 24;
+                
+                const fw = stripImg.width / numSourceFrames;
+                
+                frames.forEach((canvas, i) => {
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    
+                    let sourceIndex = i;
+                    if (currentDevice.id === 'mutoscopi' && numSourceFrames === 12) {
+                        sourceIndex = i % 12; // Repetim la seqüència dues vegades
+                    }
+                    
+                    ctx.drawImage(stripImg, sourceIndex * fw, 0, fw, stripImg.height, 0, 0, canvas.width, canvas.height);
+                });
+                
+                userModifiedFrames = true;
+                updateAnimationStrip();
+            };
+            stripImg.src = imageUrl;
+        }
+
         function setupEventListeners() {
             document.getElementById('device-select').addEventListener('change', (e) => {
                 const oldStrip = document.createElement('canvas');
@@ -339,16 +408,19 @@
                     const fwNew = frames[0].width; const hNew = frames[0].height;
 
                     if (oldNumFrames === currentDevice.numFrames) {
+                        // Transferència 1 a 1 perfecta
                         for (let i = 0; i < currentDevice.numFrames; i++) {
                             frames[i].getContext('2d').drawImage(oldStrip, i * fwOld, 0, fwOld, oldStrip.height, 0, 0, fwNew, hNew);
                         }
                     } else if (oldNumFrames === 12 && currentDevice.id === 'mutoscopi') {
-                        // Converteix 12 a 24 duplicant
+                        // Converteix 12 a 24 duplicant automàticament
                         for (let i = 0; i < 24; i++) {
                             frames[i].getContext('2d').drawImage(oldStrip, (i%12) * fwOld, 0, fwOld, oldStrip.height, 0, 0, fwNew, hNew);
                         }
                     } else {
-                        userModifiedFrames = false; createDefaultAnimation();
+                        // Si els formats xoquen (ex: Taumatrop vs Zootrop), carreguem default
+                        userModifiedFrames = false; 
+                        createDefaultAnimation();
                     }
                 } else {
                     createDefaultAnimation();
@@ -362,16 +434,26 @@
             });
 
             document.getElementById('btn-reset-cam').addEventListener('click', () => {
-                if(currentDevice.id === 'fenaquitiscopi') { camera.position.set(0, 10.25, 7); controls.target.set(0, 10.25, 0); }
+                if(currentDevice.id === 'fenaquitiscopi') { camera.position.set(0, 15, 8); controls.target.set(0, 15, 0); }
                 else if (currentDevice.id === 'mutoscopi') { camera.position.set(12, 8, 12); controls.target.set(0, 4, 0); }
                 else if (currentDevice.id === 'taumatrop') { camera.position.set(0, 5, 15); controls.target.set(0, 5, 0); }
                 else { camera.position.set(0, 15, 25); controls.target.set(0, 0, 0); }
                 controls.update();
             });
 
-            document.getElementById('btn-speed-up').addEventListener('click', () => { uiSpeed = Math.min(30.0, parseFloat((uiSpeed + 0.1).toFixed(1))); updateSpeedUI(); });
-            document.getElementById('btn-speed-down').addEventListener('click', () => { uiSpeed = Math.max(0.0, parseFloat((uiSpeed - 0.1).toFixed(1))); updateSpeedUI(); });
-            document.getElementById('speed-slider').addEventListener('input', (e) => { uiSpeed = parseFloat(e.target.value); updateSpeedUI(); });
+            // Incrementadors de velocitat a 0.1 de precisió
+            document.getElementById('btn-speed-up').addEventListener('click', () => { 
+                uiSpeed = Math.min(30.0, Math.round((uiSpeed + 0.1) * 10) / 10); 
+                updateSpeedUI(); 
+            });
+            document.getElementById('btn-speed-down').addEventListener('click', () => { 
+                uiSpeed = Math.max(0.0, Math.round((uiSpeed - 0.1) * 10) / 10); 
+                updateSpeedUI(); 
+            });
+            document.getElementById('speed-slider').addEventListener('input', (e) => { 
+                uiSpeed = parseFloat(e.target.value); 
+                updateSpeedUI(); 
+            });
 
             document.getElementById('btn-save-strip').addEventListener('click', () => {
                 updateAnimationStrip();
@@ -383,6 +465,7 @@
 
             document.getElementById('btn-load-file').addEventListener('click', () => document.getElementById('file-upload').click());
             document.getElementById('file-upload').addEventListener('change', handleFileUpload);
+            
             document.getElementById('btn-load-folder').addEventListener('click', () => document.getElementById('folder-upload').click());
             document.getElementById('folder-upload').addEventListener('change', handleFolderUpload);
 
@@ -393,7 +476,7 @@
         function updateSpeedUI() {
             document.getElementById('speed-slider').value = uiSpeed;
             document.getElementById('speed-display').innerText = uiSpeed.toFixed(1);
-            rotationSpeed = uiSpeed * 0.05; 
+            rotationSpeed = uiSpeed * 0.05; // Ajust intern pel motor 3D
         }
 
         function updatePlayButtonUI() {
@@ -453,12 +536,16 @@
             else if (currentDevice.id === 'taumatrop') onionCtx.drawImage(frames[1], 0, 0); 
             else onionCtx.drawImage(frames[currentDevice.numFrames - 1], 0, 0);
 
+            // Dibuixem la Guia Blava (Límits de visió en 3D)
             guideCanvas.width = w; guideCanvas.height = h;
             guideCtx.clearRect(0, 0, w, h);
             guideCtx.strokeStyle = '#4299e1'; guideCtx.lineWidth = 2; guideCtx.setLineDash([6, 6]); 
             guideCtx.beginPath();
-            if (currentDevice.id === 'taumatrop') guideCtx.arc(w / 2, h / 2, (w / 2) - 2, 0, Math.PI * 2);
-            else guideCtx.rect(2, 2, w - 4, h - 4);
+            if (currentDevice.id === 'taumatrop') {
+                guideCtx.arc(w / 2, h / 2, (w / 2) - 2, 0, Math.PI * 2);
+            } else {
+                guideCtx.rect(2, 2, w - 4, h - 4);
+            }
             guideCtx.stroke(); guideCtx.setLineDash([]);
 
             undoStack = []; saveUndoState(); commitSelection();
@@ -513,6 +600,7 @@
 
             document.getElementById('btn-undo-modal').addEventListener('click', performUndo);
             document.getElementById('btn-clear-modal').addEventListener('click', () => { saveUndoState(); commitSelection(); modalCtx.clearRect(0, 0, modalCanvas.width, modalCanvas.height); });
+            
             document.getElementById('btn-copy-modal').addEventListener('click', () => {
                 commitSelection();
                 if (!clipboardData) clipboardData = document.createElement('canvas');
@@ -532,6 +620,7 @@
                     const img = new Image();
                     img.onload = () => {
                         saveUndoState(); commitSelection();
+                        // Escalar i centrar
                         const sX = modalCanvas.width / img.width; const sY = modalCanvas.height / img.height;
                         const s = Math.min(sX, sY) * 0.9; 
                         const nw = img.width * s; const nh = img.height * s;
@@ -726,17 +815,7 @@
             const file = e.target.files[0]; if (!file) return;
             const reader = new FileReader();
             reader.onload = (event) => {
-                const img = new Image();
-                img.onload = () => {
-                    const fw = img.width / currentDevice.numFrames;
-                    frames.forEach((canvas, i) => {
-                        const ctx = canvas.getContext('2d');
-                        ctx.clearRect(0, 0, canvas.width, canvas.height);
-                        ctx.drawImage(img, i*fw, 0, fw, img.height, 0, 0, canvas.width, canvas.height);
-                    });
-                    userModifiedFrames = true; updateAnimationStrip();
-                };
-                img.src = event.target.result;
+                validateAndLoadImage(file.name, event.target.result);
             };
             reader.readAsDataURL(file); e.target.value = ''; 
         }
@@ -752,17 +831,7 @@
                     img.src = event.target.result;
                     img.className = 'w-full h-auto cursor-pointer rounded border border-gray-600 hover:border-blue-400 object-cover';
                     img.onclick = () => {
-                        const stripImg = new Image();
-                        stripImg.onload = () => {
-                            const fw = stripImg.width / currentDevice.numFrames;
-                            frames.forEach((canvas, i) => {
-                                const ctx = canvas.getContext('2d');
-                                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                                ctx.drawImage(stripImg, i*fw, 0, fw, stripImg.height, 0, 0, canvas.width, canvas.height);
-                            });
-                            userModifiedFrames = true; updateAnimationStrip();
-                        };
-                        stripImg.src = event.target.result;
+                        validateAndLoadImage(file.name, event.target.result);
                     };
                     gallery.appendChild(img);
                 };
@@ -911,7 +980,7 @@
 
                 for(let i=0; i<currentDevice.numFrames; i++) {
                     const angle = (Math.PI*2) / currentDevice.numFrames;
-                    // El paràmetre 'true' és per a 'openEnded', perquè la paret del cilindre no tingui tapa superior
+                    // paret exterior buida per dalt openEnded: true
                     const seg = new THREE.Mesh(new THREE.CylinderGeometry(10, 9.5, 8, 8, 1, true, i*angle + 0.04, angle - 0.08), blackMat);
                     seg.position.y = 4; drum.add(seg);
                 }
@@ -924,12 +993,14 @@
                 const stripMesh = new THREE.Mesh(new THREE.CylinderGeometry(11.5, 11.5, 6, 64, 1, true), new THREE.MeshBasicMaterial({ map: animationStripTexture, side: THREE.BackSide }));
                 stripMesh.position.y = 3; rotor.add(stripMesh);
 
-                const pillar = new THREE.Mesh(new THREE.CylinderGeometry(4.6, 4.6, 6, currentDevice.numFrames), blackMat);
+                const pillar = new THREE.Mesh(new THREE.CylinderGeometry(3.6, 3.6, 6, currentDevice.numFrames), blackMat);
                 pillar.position.y = 3; rotor.add(pillar);
 
                 const prismHeight = 3.4; 
                 const prismMat = new THREE.MeshBasicMaterial({ map: mirrorTexture });
-                const prism = new THREE.Mesh(new THREE.CylinderGeometry(4.8, 4.8, prismHeight, currentDevice.numFrames), [prismMat, darkWoodMat, darkWoodMat]);
+                const prismRadius = 1.7 / Math.sin(Math.PI / currentDevice.numFrames); // Calcula el radi correcte per encaixar les proporcions
+
+                const prism = new THREE.Mesh(new THREE.CylinderGeometry(prismRadius, prismRadius, prismHeight, currentDevice.numFrames), [prismMat, darkWoodMat, darkWoodMat]);
                 prism.position.y = 3; prism.rotation.y = Math.PI / currentDevice.numFrames; rotor.add(prism);
                 
                 deviceObject.add(rotor); camera.position.set(0, 15, 20); controls.target.set(0, 3, 0);
@@ -943,13 +1014,13 @@
                 deviceObject.add(rotor); 
                 
                 const standMat = new THREE.MeshStandardMaterial({color: 0x5c4033});
-                const standLeft = new THREE.Mesh(new THREE.BoxGeometry(3.75, 16, 0.2), standMat); standLeft.position.set(-2.125, 8, 3);
-                const standRight = new THREE.Mesh(new THREE.BoxGeometry(3.75, 16, 0.2), standMat); standRight.position.set(2.125, 8, 3);
-                const standTop = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, 0.2), standMat); standTop.position.set(0, 14, 3);
-                const standBottom = new THREE.Mesh(new THREE.BoxGeometry(0.5, 8.5, 0.2), standMat); standBottom.position.set(0, 4.25, 3);
+                const standLeft = new THREE.Mesh(new THREE.BoxGeometry(3.75, 18, 0.2), standMat); standLeft.position.set(-2.125, 9, 3);
+                const standRight = new THREE.Mesh(new THREE.BoxGeometry(3.75, 18, 0.2), standMat); standRight.position.set(2.125, 9, 3);
+                const standTop = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, 0.2), standMat); standTop.position.set(0, 16, 3);
+                const standBottom = new THREE.Mesh(new THREE.BoxGeometry(0.5, 9.5, 0.2), standMat); standBottom.position.set(0, 4.75, 3);
                 deviceObject.add(standLeft, standRight, standTop, standBottom);
 
-                camera.position.set(0, 10.25, 7); controls.target.set(0, 10.25, 0);
+                camera.position.set(0, 15, 8); controls.target.set(0, 15, 0);
 
             } else if (currentDevice.id === 'mutoscopi') {
                 deviceObject.add(new THREE.Mesh(new THREE.BoxGeometry(3, 8, 3), darkWoodMat).translateY(-2));
