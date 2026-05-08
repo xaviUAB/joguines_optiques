@@ -440,7 +440,7 @@
 
             document.getElementById('btn-reset-cam').addEventListener('click', () => {
                 if(currentDevice.id === 'fenaquitiscopi') {
-                    camera.position.set(0, 12, 3.5); controls.target.set(0, 10, -3);
+                    camera.position.set(0, 11.8, 1.5); controls.target.set(0, 11.8, -4);
                 } else {
                     camera.position.set(0, 15, 25); controls.target.set(0, 0, 0);
                 }
@@ -456,11 +456,26 @@
             document.getElementById('speed-slider').addEventListener('input', (e) => {
                 visualSpeed = parseFloat(e.target.value); updateSpeedUI();
             });
-            document.getElementById('btn-speed-down').addEventListener('click', () => {
-                visualSpeed = Math.max(0, visualSpeed - 0.1); updateSpeedUI();
+
+            let speedInterval;
+            const startSpeedChange = (delta) => {
+                const change = () => { visualSpeed = Math.max(0, Math.min(30, visualSpeed + delta)); updateSpeedUI(); };
+                change(); 
+                speedInterval = setInterval(change, 100); 
+            };
+            const stopSpeedChange = () => clearInterval(speedInterval);
+
+            const btnDown = document.getElementById('btn-speed-down');
+            const btnUp = document.getElementById('btn-speed-up');
+            
+            ['mousedown', 'touchstart'].forEach(evt => {
+                btnDown.addEventListener(evt, (e) => { e.preventDefault(); startSpeedChange(-0.1); });
+                btnUp.addEventListener(evt, (e) => { e.preventDefault(); startSpeedChange(0.1); });
             });
-            document.getElementById('btn-speed-up').addEventListener('click', () => {
-                visualSpeed = Math.min(30, visualSpeed + 0.1); updateSpeedUI();
+            
+            ['mouseup', 'mouseleave', 'touchend'].forEach(evt => {
+                btnDown.addEventListener(evt, stopSpeedChange);
+                btnUp.addEventListener(evt, stopSpeedChange);
             });
 
             document.getElementById('btn-save-strip').addEventListener('click', () => {
@@ -906,7 +921,9 @@
                         ctx.beginPath(); ctx.moveTo(w/2+20, h/2+15); ctx.lineTo(w/2+40, h/2); ctx.lineTo(w/2+20, h/2); ctx.fill();
                     }
                 } else {
-                    const phase = (i / numFrames) * Math.PI * 2;
+                    // Garantim que el mutoscopi repeteixi el mateix cicle de la pilota (12) exactament com el zootrop
+                    let loopFrames = currentDevice.id === 'mutoscopi' ? 12 : numFrames;
+                    const phase = ((i % loopFrames) / loopFrames) * Math.PI * 2;
                     const y = h - 30 - Math.abs(Math.sin(phase)) * (h - 60);
                     ctx.fillStyle = '#e53e3e'; ctx.beginPath(); ctx.arc(w/2, y, 15, 0, Math.PI*2); ctx.fill();
                     ctx.strokeStyle = '#111'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(10, h-10); ctx.lineTo(w-10, h-10); ctx.stroke();
@@ -1061,76 +1078,115 @@
                 const drum = new THREE.Group(); drum.position.y = 4;
                 drum.add(new THREE.Mesh(new THREE.CylinderGeometry(10, 10, 0.5, 32), woodMat));
                 
-                animationStripTexture.repeat.set(-1, 1);
-                const stripMesh = new THREE.Mesh(new THREE.CylinderGeometry(9.4, 9.4, 6, 64, 1, true), new THREE.MeshBasicMaterial({ map: animationStripTexture, side: THREE.BackSide }));
+                const stripMesh = new THREE.Mesh(new THREE.CylinderGeometry(11.5, 11.5, 6, 64, 1, true), new THREE.MeshBasicMaterial({ map: animationStripTexture, side: THREE.BackSide }));
                 stripMesh.position.y = 3; drum.add(stripMesh);
+                animationStripTexture.repeat.set(-1, 1);
 
                 for(let i=0; i<currentDevice.numFrames; i++) {
                     const angle = (Math.PI*2) / currentDevice.numFrames;
-                    const seg = new THREE.Mesh(new THREE.CylinderGeometry(10, 9.5, 8, 8, 1, true, i*angle + 0.04, angle - 0.08), blackMat);
+                    const seg = new THREE.Mesh(new THREE.CylinderGeometry(12, 11.4, 8, 8, 1, false, i*angle + 0.04, angle - 0.08), blackMat);
                     seg.position.y = 4; drum.add(seg);
                 }
-                deviceObject.add(drum); camera.position.set(0, 15, 25); controls.target.set(0, 4, 0);
+                deviceObject.add(drum); camera.position.set(0, 12, 18); controls.target.set(0, 4, 0);
 
             } else if (currentDevice.id === 'praxinoscopi') {
                 deviceObject.add(new THREE.Mesh(new THREE.CylinderGeometry(13, 14, 1, 32), woodMat).translateY(-0.5));
                 const rotor = new THREE.Group(); rotor.add(new THREE.Mesh(new THREE.CylinderGeometry(12, 12, 0.5, 32), darkWoodMat));
                 
-                animationStripTexture.repeat.set(-1, 1);
                 const stripMesh = new THREE.Mesh(new THREE.CylinderGeometry(11.5, 11.5, 6, 64, 1, true), new THREE.MeshBasicMaterial({ map: animationStripTexture, side: THREE.BackSide }));
                 stripMesh.position.y = 3; rotor.add(stripMesh);
 
                 const mirrorTex = animationStripTexture.clone();
                 mirrorTex.repeat.set(-1, 1); mirrorTex.needsUpdate = true;
                 
-                const prismH = 6; 
-                const hexR = 4.8;
-                const innerAxis = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, prismH, 16), darkWoodMat);
+                // Prisma central escurçat a 3.4 per respectar les proporcions 150x200 de l'original i evitar estiraments
+                const innerAxis = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 3.4, 16), darkWoodMat);
                 innerAxis.position.y = 3; rotor.add(innerAxis);
 
-                const prism = new THREE.Mesh(new THREE.CylinderGeometry(hexR, hexR, prismH, currentDevice.numFrames), [new THREE.MeshBasicMaterial({ map: mirrorTex }), darkWoodMat, darkWoodMat]);
+                const prism = new THREE.Mesh(new THREE.CylinderGeometry(4.8, 4.8, 3.4, currentDevice.numFrames), [new THREE.MeshBasicMaterial({ map: mirrorTex }), darkWoodMat, darkWoodMat]);
                 prism.position.y = 3; prism.rotation.y = Math.PI / currentDevice.numFrames; rotor.add(prism);
-                
-                deviceObject.add(rotor); camera.position.set(0, 15, 25); controls.target.set(0, 3, 0);
+                deviceObject.add(rotor); camera.position.set(0, 15, 20); controls.target.set(0, 3, 0);
 
             } else if (currentDevice.id === 'fenaquitiscopi') {
-                deviceObject.add(new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 10, 16), woodMat).translateY(0));
-                const rotor = new THREE.Group(); rotor.position.y = 5; rotor.rotation.x = 0; rotor.userData.isRotor = true;
+                // Mànec vertical
+                deviceObject.add(new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 10, 16), darkWoodMat).translateY(-1));
                 
-                const fenaqTexMatF = new THREE.MeshBasicMaterial({ map: radialTexture, transparent: true, alphaTest: 0.1, side: THREE.FrontSide });
-                const faceF = new THREE.Mesh(new THREE.CircleGeometry(8, 64), fenaqTexMatF);
-                faceF.rotation.y = Math.PI; 
-                rotor.add(faceF);
+                // Passador horitzontal
+                const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 1, 16), metalMat);
+                pin.rotation.x = Math.PI/2;
+                pin.position.set(0, 4.5, 0);
+                deviceObject.add(pin);
+
+                const rotor = new THREE.Group(); 
+                rotor.position.set(0, 4.5, 0.5); 
+                rotor.rotation.x = 0; // Ara el disc és perfectament vertical!
+                rotor.rotation.z = Math.PI / currentDevice.numFrames; // Alinea la ranura perfectament en vertical
+                rotor.userData.isRotor = true;
                 
-                const fenaqTexMatB = new THREE.MeshBasicMaterial({ map: radialTexB, transparent: true, alphaTest: 0.1, side: THREE.FrontSide });
-                const faceB = new THREE.Mesh(new THREE.CircleGeometry(8, 64), fenaqTexMatB);
-                rotor.add(faceB);
+                // Cara Frontal (Animació). Mira cap al mirall (-Z). Fent BackSide la imatge s'inverteix visualment, i el mirall la torna a posar del dret!
+                const matFront = new THREE.MeshBasicMaterial({ map: radialTexture, transparent: true, alphaTest: 0.1, side: THREE.BackSide });
+                const frontDisc = new THREE.Mesh(new THREE.CircleGeometry(8, 64), matFront);
+                rotor.add(frontDisc);
+
+                // Cara Posterior (Gris fosc amb ranures). Mira cap a l'espectador (+Z).
+                const matBack = new THREE.MeshBasicMaterial({ map: radialTexB, transparent: true, alphaTest: 0.1, side: THREE.FrontSide });
+                const backDisc = new THREE.Mesh(new THREE.CircleGeometry(8, 64), matBack);
+                backDisc.position.z = 0.01; // Evita solapament visual
+                rotor.add(backDisc);
                 
-                deviceObject.add(rotor); 
+                deviceObject.add(rotor);
                 
                 if (THREE.Reflector) {
                     const mirrorGeo = new THREE.PlaneGeometry(50, 50);
                     const mirror = new THREE.Reflector(mirrorGeo, { clipBias: 0.003, textureWidth: window.innerWidth * window.devicePixelRatio, textureHeight: window.innerHeight * window.devicePixelRatio, color: 0x8899a6 });
-                    mirror.position.set(0, 5, -5);
+                    mirror.position.set(0, 4.5, -4);
                     deviceObject.add(mirror);
                 }
                 
-                camera.position.set(0, 12, 3.5); controls.target.set(0, 10, -3);
+                camera.position.set(0, 11.8, 1.5); controls.target.set(0, 11.8, -4);
 
             } else if (currentDevice.id === 'mutoscopi') {
                 deviceObject.add(new THREE.Mesh(new THREE.BoxGeometry(3, 8, 3), darkWoodMat).translateY(-2));
                 const rotor = new THREE.Group(); rotor.position.y = 4; rotor.userData.isRotor = true;
                 const axis = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 5, 16), metalMat); axis.rotation.z = Math.PI/2; rotor.add(axis);
                 
-                animationStripTexture.repeat.set(1, 1);
+                // Topall vermell (stopper)
+                const stopperMat = new THREE.MeshStandardMaterial({color: 0xcc0000});
+                const stopper = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 3.5, 16), stopperMat);
+                stopper.rotation.z = Math.PI/2;
+                stopper.position.set(0, 9.1, 1.03); 
+                deviceObject.add(stopper);
+
+                rotor.userData.cards = [];
+                const cardBackMat = new THREE.MeshBasicMaterial({ color: 0xdcdcdc, side: THREE.FrontSide }); // Color paper pel darrere
+                
                 for(let i=0; i<currentDevice.numFrames; i++) {
-                    const mat = new THREE.MeshBasicMaterial({ map: animationStripTexture, side: THREE.DoubleSide });
-                    const card = new THREE.Mesh(new THREE.PlaneGeometry(3, 4).translate(0,2,0), mat); card.position.y = 1.2;
-                    const geom = card.geometry; const uvs = geom.attributes.uv.array;
-                    const uvOffset = i / currentDevice.numFrames; const uvWidth = 1 / currentDevice.numFrames;
-                    for (let j=0; j<uvs.length; j+=2) { uvs[j] = uvs[j] * uvWidth + uvOffset; }
+                    const anchor = new THREE.Group(); 
+                    anchor.rotation.x = (i/currentDevice.numFrames)*Math.PI*2; 
                     
-                    const anchor = new THREE.Group(); anchor.rotation.x = (i/currentDevice.numFrames)*Math.PI*2; anchor.add(card); rotor.add(anchor);
+                    const card = new THREE.Group();
+                    card.userData.baseAngle = anchor.rotation.x;
+                    
+                    const mat = new THREE.MeshBasicMaterial({ map: animationStripTexture.clone(), side: THREE.FrontSide });
+                    mat.map.repeat.set(1/currentDevice.numFrames, 1); mat.map.offset.set(i/currentDevice.numFrames, 0); mat.map.needsUpdate = true;
+                    
+                    // Cara frontal (imatge)
+                    const front = new THREE.Mesh(new THREE.PlaneGeometry(3, 4).translate(0, 2, 0.01), mat);
+                    
+                    // Cara posterior (paper). Fem que miri enrere
+                    const geomBack = new THREE.PlaneGeometry(3, 4);
+                    geomBack.translate(0, 2, 0);
+                    geomBack.rotateY(Math.PI); 
+                    geomBack.translate(0, 0, -0.01);
+                    const back = new THREE.Mesh(geomBack, cardBackMat);
+                    
+                    card.add(front);
+                    card.add(back);
+                    card.position.y = 1.2; // Radi de separació des de l'eix central
+                    
+                    anchor.add(card); 
+                    rotor.add(anchor);
+                    rotor.userData.cards.push(card);
                 }
                 deviceObject.add(rotor); camera.position.set(12, 8, 12); controls.target.set(0, 4, 0);
 
@@ -1139,11 +1195,11 @@
                 const texF = animationStripTexture.clone(); texF.repeat.set(0.5,1); texF.needsUpdate=true;
                 const texB = animationStripTexture.clone(); texB.repeat.set(0.5,1); texB.offset.set(0.5,0); texB.needsUpdate=true;
                 
-                rotor.userData.texF = texF; rotor.userData.texB = texB;
+                rotor.userData.texF = texF;
+                rotor.userData.texB = texB;
 
-                rotor.add(new THREE.Mesh(new THREE.CircleGeometry(5, 64), new THREE.MeshBasicMaterial({map: texF, side: THREE.FrontSide})));
-                const back = new THREE.Mesh(new THREE.CircleGeometry(5, 64), new THREE.MeshBasicMaterial({map: texB, side: THREE.FrontSide})); 
-                back.rotation.y = Math.PI; back.rotation.z = Math.PI; rotor.add(back);
+                rotor.add(new THREE.Mesh(new THREE.CircleGeometry(5, 64), new THREE.MeshBasicMaterial({map: texF})));
+                const back = new THREE.Mesh(new THREE.CircleGeometry(5, 64), new THREE.MeshBasicMaterial({map: texB})); back.rotation.x = Math.PI; rotor.add(back);
                 
                 const strMat = new THREE.LineBasicMaterial({color: 0xaa});
                 rotor.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-5,0,0), new THREE.Vector3(-10,0,0)]), strMat));
@@ -1161,24 +1217,53 @@
 
         function animate() {
             requestAnimationFrame(animate);
-            let r = null;
-            if(deviceObject) {
-                r = deviceObject.children.find(c => c.userData.isRotor) || deviceObject.children.find(c => c.type === 'Group') || deviceObject.children[0];
-            }
-
-            if (r && !isDragging3D) {
-                if (isPlaying) {
-                    const speed = baseEngineSpeed * visualSpeed;
-                    if(currentDevice.id==='fenaquitiscopi') r.rotation.z -= speed;
-                    else if(currentDevice.id==='mutoscopi' || currentDevice.id==='taumatrop') r.rotation.x += (currentDevice.id==='taumatrop'? speed*5 : speed);
-                    else r.rotation.y += speed;
-                } else if (Math.abs(spinVelocity) > 0.001) {
+            
+            // Fricció en moure-ho manualment
+            if (Math.abs(spinVelocity) > 0.001) {
+                spinVelocity *= 0.99; 
+                if (deviceObject) {
+                    let r = deviceObject.children.find(c => c.userData.isRotor) || deviceObject.children.find(c => c.type === 'Group') || deviceObject.children[0];
                     if(currentDevice.id==='fenaquitiscopi') r.rotation.z += spinVelocity;
-                    else if(currentDevice.id==='mutoscopi' || currentDevice.id==='taumatrop') r.rotation.x += spinVelocity;
+                    else if(currentDevice.id==='mutoscopi') r.rotation.x += spinVelocity;
+                    else if(currentDevice.id==='taumatrop') r.rotation.x += spinVelocity;
                     else r.rotation.y += spinVelocity;
-                    spinVelocity *= 0.99;
                 }
             }
+
+            // Gir automàtic del motor
+            if (isPlaying && deviceObject && !isDragging3D) {
+                let r = deviceObject.children.find(c => c.type === 'Group' || c.userData.isRotor) || deviceObject.children[0];
+                
+                // Calculate physical rotation speed based on the UI visualSpeed
+                let activeSpeed = baseEngineSpeed * (visualSpeed / 5.3);
+
+                if(currentDevice.id==='fenaquitiscopi') r.rotation.z -= activeSpeed;
+                else if(currentDevice.id==='mutoscopi') r.rotation.x += activeSpeed; 
+                else if(currentDevice.id==='taumatrop') r.rotation.x += activeSpeed*5;
+                else r.rotation.y += activeSpeed; 
+            }
+
+            // Simulació mecànica Torsió Mutoscopi (Page Flip)
+            if (currentDevice.id === 'mutoscopi' && deviceObject) {
+                let r = deviceObject.children.find(c => c.userData.isRotor);
+                if (r && r.userData.cards) {
+                    r.userData.cards.forEach(card => {
+                        let theta = (r.rotation.x + card.userData.baseAngle) % (Math.PI * 2);
+                        if (theta < 0) theta += Math.PI * 2; // Normalitzem de 0 a 2PI
+                        
+                        // Retenim la targeta (es doblega cap enrere) al topall vermell (aprox theta = 0.2)
+                        if (theta > 0.2 && theta < 1.2) {
+                            card.rotation.x = 0.2 - theta; // Torsió molt exagerada!
+                        } else if (theta >= 1.2 && theta < 1.4) {
+                            let progress = (theta - 1.2) / 0.2;
+                            card.rotation.x = -1.0 * (1 - Math.pow(progress, 3)); // Snap alliberat de cop
+                        } else {
+                            card.rotation.x = 0; // Posició de repòs normal
+                        }
+                    });
+                }
+            }
+
             controls.update(); renderer.render(scene, camera);
         }
 
