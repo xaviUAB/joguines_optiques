@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/objects/Reflector.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Inter', sans-serif; background-color: #1a202c; color: #e2e8f0; }
@@ -48,11 +49,9 @@
     </style>
 </head>
 <body>
-    <!-- Toast Notification Container -->
     <div id="toast-container" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
     <div id="app-container">
-        <!-- Sidebar Navigation & Info -->
         <div id="sidebar">
             <h1 class="text-2xl font-bold mb-6 text-white text-center"><i class="fas fa-film mr-2"></i>Lab d'Animació</h1>
             <div class="mb-4">
@@ -75,7 +74,6 @@
                 </div>
                 <input type="file" id="file-upload" accept="image/*" class="hidden">
                 <input type="file" id="folder-upload" webkitdirectory directory multiple class="hidden">
-                <!-- Gallery fetched from GitHub -->
                 <div id="gallery-container" class="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto mt-2 pr-1">
                     <div class="text-xs text-gray-400 w-full col-span-2 text-center py-2"><i class="fas fa-spinner fa-spin"></i> Connectant amb GitHub...</div>
                 </div>
@@ -96,18 +94,14 @@
                 </ul>
             </div>
             
-            <!-- Peu de pàgina -->
             <div class="mt-8 border-t border-gray-700 pt-4 text-center text-[10px] text-gray-500 leading-relaxed">
                 <p>Una creació de Xavier Ribes</p>
                 <p>Departament de Comunicació Audiovisual i Publicitat de la UAB</p>
             </div>
         </div>
 
-        <!-- Main Workspace -->
         <div id="main-content">
-            <!-- 3D Canvas Container -->
             <div id="canvas-container">
-                <!-- Controls de Reproducció i Velocitat -->
                 <div id="canvas-ui" class="absolute top-4 right-4 flex gap-2 z-10">
                     <div class="flex items-center bg-gray-800 rounded px-3 py-1 border border-gray-600 gap-2">
                         <i class="fas fa-tachometer-alt text-gray-400 text-sm" title="Velocitat"></i>
@@ -121,7 +115,6 @@
                 </div>
             </div>
 
-            <!-- Mini frames timeline -->
             <div id="editor-container">
                 <div class="flex justify-between items-center mb-2">
                     <h2 class="text-lg font-bold text-white"><i class="fas fa-film mr-2"></i>Tira d'Animació (Fes clic per editar)</h2>
@@ -132,10 +125,8 @@
         </div>
     </div>
 
-    <!-- Modal Editor -->
     <div id="editor-modal" class="hidden fixed inset-0 bg-black bg-opacity-80 z-50 flex justify-center items-center backdrop-blur-sm">
         <div class="bg-gray-800 p-6 rounded-lg flex flex-col w-11/12 max-w-5xl shadow-2xl border border-gray-700">
-            <!-- Modal Header -->
             <div class="flex justify-between items-center mb-4">
                 <div class="flex items-center gap-4">
                     <h3 class="text-2xl font-bold text-white">Edició de Fotograma</h3>
@@ -149,7 +140,7 @@
             </div>
 
             <div class="flex gap-4 w-full">
-                <!-- Barra d'eines Esquerra (Dibuix i Eines) -->
+                <!-- Toolbar Left -->
                 <div class="flex flex-col gap-2 bg-gray-900 p-3 rounded-lg border border-gray-700 w-24 flex-shrink-0">
                     <button class="tool-btn active flex flex-col items-center gap-1" data-tool="brush" title="Pinzell"><i class="fas fa-paint-brush"></i><span class="text-[10px]">Pinzell</span></button>
                     <button class="tool-btn flex flex-col items-center gap-1" data-tool="fill" title="Omplir (Cubell)"><i class="fas fa-fill-drip"></i><span class="text-[10px]">Omplir</span></button>
@@ -160,21 +151,19 @@
                     <button class="tool-btn flex flex-col items-center gap-1" data-tool="scale" title="Escalar Selecció"><i class="fas fa-expand-arrows-alt"></i><span class="text-[10px]">Escalar</span></button>
                     
                     <hr class="border-gray-700 my-1">
-                    
                     <input type="color" id="modal-brush-color" class="w-full h-8 rounded cursor-pointer border-none p-0" value="#111111" title="Color">
                     <input type="range" id="modal-brush-size" min="1" max="30" value="5" class="w-full mt-2" title="Mida">
                 </div>
 
-                <!-- Llenç Central amb Capes -->
+                <!-- Canvas Stack -->
                 <div id="canvas-stack" class="relative flex-grow checkerboard-bg rounded-lg border-2 border-gray-600 overflow-hidden flex items-center justify-center bg-[#1a202c]" style="height: 65vh;">
                     <canvas id="onion-canvas" class="absolute opacity-30 pointer-events-none"></canvas>
                     <canvas id="modal-canvas" class="absolute"></canvas>
-                    <!-- Guia visual blava (pointer-events-none) -->
                     <canvas id="guide-canvas" class="absolute pointer-events-none opacity-50"></canvas>
                     <canvas id="overlay-canvas" class="absolute"></canvas>
                 </div>
 
-                <!-- Barra d'eines Dreta (Accions de Fitxer/Capa) -->
+                <!-- Toolbar Right -->
                 <div class="flex flex-col gap-2 bg-gray-900 p-3 rounded-lg border border-gray-700 w-24 flex-shrink-0">
                     <button id="btn-undo-modal" class="tool-btn flex flex-col items-center gap-1"><i class="fas fa-undo"></i><span class="text-[10px]">Desfer</span></button>
                     <button id="btn-copy-modal" class="tool-btn flex flex-col items-center gap-1"><i class="fas fa-copy"></i><span class="text-[10px]">Copiar</span></button>
@@ -184,7 +173,6 @@
                     
                     <button id="btn-import-modal" class="tool-btn flex flex-col items-center gap-1 text-green-400 hover:text-green-300"><i class="fas fa-file-import"></i><span class="text-[10px]">Importar</span></button>
                     <input type="file" id="import-image-input" accept="image/*" class="hidden">
-                    
                     <button id="btn-clear-modal" class="tool-btn flex flex-col items-center gap-1 text-red-400 hover:text-red-300"><i class="fas fa-trash"></i><span class="text-[10px]">Netejar</span></button>
                 </div>
             </div>
@@ -194,7 +182,7 @@
     <script>
         const deviceData = {
             taumatrop: { id: 'taumatrop', name: 'Taumatrop', year: '1824', inventor: 'John Ayrton Paris', etymology: "Del grec <em>thauma</em> (meravella) i <em>tropos</em> (gir). 'El gir meravellós'.", description: "Un simple disc amb un fil als extrems i un dibuix a cada cara.", physics: "Aquest és el cas més clar de <b>Persistència Retiniana</b> pura. La imatge A roman a la retina una fracció de segon mentre la imatge B ja està sent percebuda. Les dues es fusionen mentalment.", instructions: "Dibuixa un element a cada fotograma de manera que es complementin (ex: ocell i gàbia).", numFrames: 2 },
-            fenaquitiscopi: { id: 'fenaquitiscopi', name: 'Fenaquitiscopi', year: '1832', inventor: 'Joseph Plateau', etymology: "Del grec <em>phenakizein</em> (enganyar) i <em>skopein</em> (observar). 'L'engany visual'.", description: "Un disc vertical giratori. L'usuari mira a través de les escletxes del suport cap al disc posterior.", physics: "Com el zootrop, la ranura funciona com un obturador mecànic curt. La persistència retiniana reté la llum per no veure foscor, i l'<b>Efecte Phi</b> genera el moviment cognitiu entre esquerdes.", instructions: "Dibuixa la seqüència. Mira a través de la ranura de fusta central per veure la il·lusió quan gira.", numFrames: 12 },
+            fenaquitiscopi: { id: 'fenaquitiscopi', name: 'Fenaquitiscopi', year: '1832', inventor: 'Joseph Plateau', etymology: "Del grec <em>phenakizein</em> (enganyar) i <em>skopein</em> (observar). 'L'engany visual'.", description: "Disc giratori amb l'animació a una cara. Es subjecta per un mànec i l'espectador mira a través de les escletxes cap al reflex en un gran mirall.", physics: "Es basa en l'<b>Efecte Phi</b> i el Moviment Beta. En mirar a través del tall, aquest funciona com un obturador curt (com en el cine). La persistència retiniana reté la llum per no veure foscor, i l'Efecte Phi genera la il·lusió de moviment continu al mirall.", instructions: "Dibuixos seqüencials. Posa't darrere del disc per mirar pel tall superior cap al mirall.", numFrames: 12 },
             zootrop: { id: 'zootrop', name: 'Zootrop', year: '1834', inventor: 'William George Horner', etymology: "Del grec <em>zoe</em> (vida) i <em>tropos</em> (gir). 'Roda de la vida'.", description: "Cilindre giratori amb escletxes verticals per on l'espectador mira cap a l'interior.", physics: "Es basa en l'<b>Efecte Phi</b> i el moviment beta. El cervell suma imatges lleugerament diferents creant la il·lusió de moviment continu. Les escletxes funcionen com un obturador que bloqueja l'esborrall visual entre fotogrames.", instructions: "Animació clàssica de 12 fotogrames en cicle.", numFrames: 12 },
             praxinoscopi: { id: 'praxinoscopi', name: 'Praxinoscopi', year: '1877', inventor: 'Émile Reynaud', etymology: "Del grec <em>praxis</em> (acció) i <em>skopein</em> (observar). 'Observador de l'acció'.", description: "Evolució del zootrop que substitueix les escletxes per un prisma interior de miralls.", physics: "També usa l'<b>Efecte Phi</b>, però la reflexió dels miralls compensa el gir de la imatge de forma òptica. Ofereix una animació més estable i lluminosa sense pèrdua de llum.", instructions: "Animació de 12 fotogrames. La il·lusió es veu reflectida al centre de l'aparell.", numFrames: 12 },
             mutoscopi: { id: 'mutoscopi', name: 'Mutoscopi', year: '1894', inventor: 'Herman Casler', etymology: "Del llatí <em>mutare</em> (canviar) i el grec <em>skopein</em> (observar). 'Observador del canvi'.", description: "Dispositiu de visionat amb un rodet mecànic, similar a un llibret animat o 'flip-book' gegant.", physics: "Aprofita el <b>Moviment Beta</b> i l'Efecte Phi. La ràpida successió de targetes individuals opaques simula fluïdesa directament cap a l'espectador.", instructions: "Seqüència llarga de 24 fotogrames. Si vens de 12, es clona dues vegades.", numFrames: 24 }
@@ -203,7 +191,7 @@
         let currentDevice = deviceData.taumatrop;
         let isPlaying = false;
         
-        // Físiques de rotació i inèrcia
+        // Physics
         let uiSpeed = 1.0; 
         let rotationSpeed = 0.05; 
         let spinVelocity = 0; 
@@ -214,12 +202,18 @@
         let activeFrameIndex = 0;
         let userModifiedFrames = false;
 
+        // Three.js instances
         let scene, camera, renderer, controls, deviceObject;
-        let animationStripTexture, mirrorTexture, stripCanvas, stripCtx, radialCanvas, radialCtx, radialTexture;
+        let animationStripTexture, stripCanvas, stripCtx;
+        
+        // Fenaquitiscopi specific textures
+        let radialCanvas, radialCtx, radialTexture;
+        let radialBackCanvas, radialBackCtx, radialBackTexture;
+
         const raycaster = new THREE.Raycaster();
         const mouseVector = new THREE.Vector2();
 
-        // Variables del Modal i Eines
+        // Modal Variables
         let isModalOpen = false;
         let currentTool = 'brush'; 
         let isDrawing = false;
@@ -252,7 +246,6 @@
         const canvasContainer = document.getElementById('canvas-container');
 
         function init() {
-            // Assegurem que l'HTML mostra el dispositiu correcte al dropdown inicialment
             document.getElementById('device-select').value = "taumatrop";
             updateInfoPanel();
             initEditor();
@@ -292,7 +285,7 @@
                     animFiles.forEach(file => {
                         if (file.name.match(/\.(jpg|jpeg|png|gif)$/i)) {
                             const img = document.createElement('img');
-                            img.src = file.download_url; // Raw URL
+                            img.src = file.download_url;
                             img.className = 'w-full h-auto cursor-pointer rounded border border-gray-600 hover:border-blue-400 object-cover';
                             img.title = file.name;
                             img.crossOrigin = "Anonymous";
@@ -302,7 +295,6 @@
                             };
                             gallery.appendChild(img);
 
-                            // Auto-carrega inicial només si no hem modificat res encara
                             if(!userModifiedFrames) {
                                 if (currentDevice.id === 'taumatrop' && file.name.startsWith('2_')) {
                                     img.click();
@@ -314,7 +306,7 @@
                     });
                 }
 
-                // Fetch plantilles (Templates)
+                // Fetch templates
                 const plantUrl = 'https://api.github.com/repos/xaviuab/joguines_optiques/contents/plantilles';
                 const plantRes = await fetch(plantUrl);
                 const templatesContainer = document.getElementById('templates-container');
@@ -334,7 +326,7 @@
                 }
 
             } catch (error) {
-                console.warn("Error carregant de GitHub, carregant model per defecte", error);
+                console.warn("Error carregant de GitHub", error);
                 document.getElementById('gallery-container').innerHTML = '<div class="text-xs text-red-400 col-span-2">No s\'ha pogut connectar amb GitHub.</div>';
                 document.getElementById('templates-container').innerHTML = '<li class="text-red-400">Desconnectat.</li>';
                 if(!userModifiedFrames) createDefaultAnimation();
@@ -366,7 +358,7 @@
             const stripImg = new Image();
             stripImg.crossOrigin = "Anonymous";
             stripImg.onload = () => {
-                let numSourceFrames = currentDevice.numFrames; // Fallback
+                let numSourceFrames = currentDevice.numFrames;
                 if (is12) numSourceFrames = 12;
                 if (is2) numSourceFrames = 2;
                 if (is24) numSourceFrames = 24;
@@ -378,8 +370,9 @@
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
                     
                     let sourceIndex = i;
+                    // Logic to duplicate 12 frames to 24 mutoscopi cards
                     if (currentDevice.id === 'mutoscopi' && numSourceFrames === 12) {
-                        sourceIndex = i % 12; // Repetim la seqüència dues vegades
+                        sourceIndex = i % 12; 
                     }
                     
                     ctx.drawImage(stripImg, sourceIndex * fw, 0, fw, stripImg.height, 0, 0, canvas.width, canvas.height);
@@ -408,17 +401,14 @@
                     const fwNew = frames[0].width; const hNew = frames[0].height;
 
                     if (oldNumFrames === currentDevice.numFrames) {
-                        // Transferència 1 a 1 perfecta
                         for (let i = 0; i < currentDevice.numFrames; i++) {
                             frames[i].getContext('2d').drawImage(oldStrip, i * fwOld, 0, fwOld, oldStrip.height, 0, 0, fwNew, hNew);
                         }
                     } else if (oldNumFrames === 12 && currentDevice.id === 'mutoscopi') {
-                        // Converteix 12 a 24 duplicant automàticament
                         for (let i = 0; i < 24; i++) {
                             frames[i].getContext('2d').drawImage(oldStrip, (i%12) * fwOld, 0, fwOld, oldStrip.height, 0, 0, fwNew, hNew);
                         }
                     } else {
-                        // Si els formats xoquen (ex: Taumatrop vs Zootrop), carreguem default
                         userModifiedFrames = false; 
                         createDefaultAnimation();
                     }
@@ -434,14 +424,13 @@
             });
 
             document.getElementById('btn-reset-cam').addEventListener('click', () => {
-                if(currentDevice.id === 'fenaquitiscopi') { camera.position.set(0, 12, 15); controls.target.set(0, 12, 0); }
+                if(currentDevice.id === 'fenaquitiscopi') { camera.position.set(0, 16.8, 4.5); controls.target.set(0, 16.8, 0); }
                 else if (currentDevice.id === 'mutoscopi') { camera.position.set(12, 8, 12); controls.target.set(0, 4, 0); }
                 else if (currentDevice.id === 'taumatrop') { camera.position.set(0, 5, 15); controls.target.set(0, 5, 0); }
                 else { camera.position.set(0, 15, 25); controls.target.set(0, 0, 0); }
                 controls.update();
             });
 
-            // Incrementadors de velocitat a 0.1 de precisió
             document.getElementById('btn-speed-up').addEventListener('click', () => { 
                 uiSpeed = Math.min(30.0, Math.round((uiSpeed + 0.1) * 10) / 10); 
                 updateSpeedUI(); 
@@ -476,7 +465,7 @@
         function updateSpeedUI() {
             document.getElementById('speed-slider').value = uiSpeed;
             document.getElementById('speed-display').innerText = uiSpeed.toFixed(1);
-            rotationSpeed = uiSpeed * 0.05; // Ajust intern pel motor 3D
+            rotationSpeed = uiSpeed * 0.05; 
         }
 
         function updatePlayButtonUI() {
@@ -536,7 +525,6 @@
             else if (currentDevice.id === 'taumatrop') onionCtx.drawImage(frames[1], 0, 0); 
             else onionCtx.drawImage(frames[currentDevice.numFrames - 1], 0, 0);
 
-            // Dibuixem la Guia Blava (Límits de visió en 3D)
             guideCanvas.width = w; guideCanvas.height = h;
             guideCtx.clearRect(0, 0, w, h);
             guideCtx.strokeStyle = '#4299e1'; guideCtx.lineWidth = 2; guideCtx.setLineDash([6, 6]); 
@@ -620,7 +608,6 @@
                     const img = new Image();
                     img.onload = () => {
                         saveUndoState(); commitSelection();
-                        // Escalar i centrar
                         const sX = modalCanvas.width / img.width; const sY = modalCanvas.height / img.height;
                         const s = Math.min(sX, sY) * 0.9; 
                         const nw = img.width * s; const nh = img.height * s;
@@ -791,6 +778,7 @@
         }
 
         function hexToRgba(hex) { const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16); return [r, g, b, 255]; }
+        
         function floodFill(canvas, startX, startY, fillColorHex) {
             const ctx = canvas.getContext('2d');
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height); const data = imageData.data;
@@ -884,10 +872,22 @@
             });
 
             if(animationStripTexture) animationStripTexture.needsUpdate = true;
-            if(mirrorTexture) mirrorTexture.needsUpdate = true;
 
             if (currentDevice.id === 'fenaquitiscopi') updateRadialTexture();
             if (currentDevice.id === 'taumatrop') updateThaumatropeTextures();
+
+            // Notify all clones inside the scene to grab the new pixels
+            if (deviceObject) {
+                deviceObject.traverse((child) => {
+                    if (child.isMesh && child.material) {
+                        if (Array.isArray(child.material)) {
+                            child.material.forEach(mat => { if (mat.map) mat.map.needsUpdate = true; });
+                        } else if (child.material.map) {
+                            child.material.map.needsUpdate = true;
+                        }
+                    }
+                });
+            }
         }
 
         function updateThaumatropeTextures() {
@@ -901,37 +901,64 @@
 
         function updateRadialTexture() {
             const size = 1024;
+            const angleStep = (Math.PI*2) / frames.length;
+            const innerR = size * 0.15, outerR = size * 0.45;
+
+            // 1. CARA D'ANIMACIÓ (Frontal, mirant al mirall)
             radialCanvas.width = size; radialCanvas.height = size;
             radialCtx.clearRect(0, 0, size, size);
             
-            radialCtx.fillStyle = '#e2e8f0'; 
+            radialCtx.fillStyle = '#ffffff'; 
             radialCtx.beginPath(); 
             radialCtx.arc(size/2, size/2, size/2-10, 0, Math.PI*2); 
             radialCtx.fill();
 
-            const angleStep = (Math.PI*2) / frames.length;
-            const innerR = size * 0.15, outerR = size * 0.45;
-
+            // Talls
             radialCtx.globalCompositeOperation = 'destination-out';
             for (let i = 0; i < frames.length; i++) {
-                radialCtx.save(); radialCtx.translate(size/2, size/2); radialCtx.rotate((i+0.5)*angleStep);
+                radialCtx.save(); radialCtx.translate(size/2, size/2); radialCtx.rotate(i*angleStep);
                 radialCtx.fillRect(-6, -outerR-15, 12, 60); 
                 radialCtx.restore();
             }
             radialCtx.globalCompositeOperation = 'source-over';
 
+            // Dibuixar els frames just sota les escletxes
             for (let i = 0; i < frames.length; i++) {
                 radialCtx.save(); radialCtx.translate(size/2, size/2); radialCtx.rotate(i*angleStep);
-                const frameH = size * 0.16; const frameW = frameH * (frames[i].width / frames[i].height); 
-                const posY = -outerR + 50; 
+                
+                // Mida més petita i posició ajustada cap amunt
+                const frameW = 90;
+                const frameH = 120;
+                const posY = -outerR + 70; 
                 radialCtx.drawImage(frames[i], -frameW/2, posY, frameW, frameH);
                 radialCtx.restore();
 
                 radialCtx.save(); radialCtx.translate(size/2, size/2); radialCtx.rotate((i+0.5)*angleStep);
-                radialCtx.fillStyle = '#1a202c'; radialCtx.fillRect(-4, -outerR-10, 8, 40);
+                radialCtx.fillStyle = '#1a202c'; radialCtx.fillRect(-2, -outerR-10, 4, outerR-innerR+20);
                 radialCtx.restore();
             }
             if(radialTexture) radialTexture.needsUpdate = true;
+
+            // 2. CARA ORNAMENTAL (Fons gris llis de la part de darrere)
+            radialBackCanvas.width = size; radialBackCanvas.height = size;
+            radialBackCtx.clearRect(0, 0, size, size);
+            
+            radialBackCtx.fillStyle = '#2d3748';
+            radialBackCtx.fillRect(0, 0, size, size);
+            radialBackCtx.translate(size/2, size/2);
+            
+            // Retallem exactament les mateixes escletxes
+            radialBackCtx.globalCompositeOperation = 'destination-out';
+            for (let i = 0; i < frames.length; i++) {
+                radialBackCtx.save(); 
+                radialBackCtx.rotate(i*angleStep); 
+                radialBackCtx.fillRect(-6, -outerR-15, 12, 60); 
+                radialBackCtx.restore();
+            }
+            radialBackCtx.globalCompositeOperation = 'source-over';
+            radialBackCtx.translate(-size/2, -size/2); 
+
+            if(radialBackTexture) radialBackTexture.needsUpdate = true;
         }
 
         function initThreeJS() {
@@ -953,12 +980,11 @@
             stripCanvas = document.createElement('canvas'); stripCtx = stripCanvas.getContext('2d');
             animationStripTexture = new THREE.CanvasTexture(stripCanvas); animationStripTexture.minFilter = THREE.LinearFilter;
             
-            mirrorTexture = new THREE.CanvasTexture(stripCanvas);
-            mirrorTexture.minFilter = THREE.LinearFilter;
-            mirrorTexture.wrapS = THREE.RepeatWrapping; mirrorTexture.repeat.set(-1, 1);
-
             radialCanvas = document.createElement('canvas'); radialCtx = radialCanvas.getContext('2d');
             radialTexture = new THREE.CanvasTexture(radialCanvas); radialTexture.minFilter = THREE.LinearFilter;
+
+            radialBackCanvas = document.createElement('canvas'); radialBackCtx = radialBackCanvas.getContext('2d');
+            radialBackTexture = new THREE.CanvasTexture(radialBackCanvas); radialBackTexture.minFilter = THREE.LinearFilter;
 
             buildDevice3D();
         }
@@ -974,13 +1000,15 @@
                 const drum = new THREE.Group(); drum.position.y = 4;
                 drum.add(new THREE.Mesh(new THREE.CylinderGeometry(10, 10, 0.5, 32), woodMat));
                 
-                const stripMesh = new THREE.Mesh(new THREE.CylinderGeometry(9.4, 9.4, 6, 64, 1, true), new THREE.MeshBasicMaterial({ map: animationStripTexture, side: THREE.BackSide }));
+                // Creem una textura invertida horitzontalment per l'interior
+                const texZootrop = animationStripTexture.clone();
+                texZootrop.wrapS = THREE.RepeatWrapping; texZootrop.repeat.set(-1, 1);
+                
+                const stripMesh = new THREE.Mesh(new THREE.CylinderGeometry(9.4, 9.4, 6, 64, 1, true), new THREE.MeshBasicMaterial({ map: texZootrop, side: THREE.BackSide }));
                 stripMesh.position.y = 3; drum.add(stripMesh);
-                animationStripTexture.repeat.set(1, 1);
 
                 for(let i=0; i<currentDevice.numFrames; i++) {
                     const angle = (Math.PI*2) / currentDevice.numFrames;
-                    // paret exterior buida per dalt openEnded: true
                     const seg = new THREE.Mesh(new THREE.CylinderGeometry(10, 9.5, 8, 8, 1, true, i*angle + 0.04, angle - 0.08), blackMat);
                     seg.position.y = 4; drum.add(seg);
                 }
@@ -990,15 +1018,22 @@
                 deviceObject.add(new THREE.Mesh(new THREE.CylinderGeometry(13, 14, 1, 32), woodMat).translateY(-0.5));
                 const rotor = new THREE.Group(); rotor.add(new THREE.Mesh(new THREE.CylinderGeometry(12, 12, 0.5, 32), darkWoodMat));
                 
-                const stripMesh = new THREE.Mesh(new THREE.CylinderGeometry(11.5, 11.5, 6, 64, 1, true), new THREE.MeshBasicMaterial({ map: animationStripTexture, side: THREE.BackSide }));
+                // Tira exterior (mirada per darrere o reflectida)
+                const texPraxOuter = animationStripTexture.clone();
+                texPraxOuter.wrapS = THREE.RepeatWrapping; texPraxOuter.repeat.set(-1, 1);
+                const stripMesh = new THREE.Mesh(new THREE.CylinderGeometry(11.5, 11.5, 6, 64, 1, true), new THREE.MeshBasicMaterial({ map: texPraxOuter, side: THREE.BackSide }));
                 stripMesh.position.y = 3; rotor.add(stripMesh);
 
-                const pillar = new THREE.Mesh(new THREE.CylinderGeometry(3.6, 3.6, 6, currentDevice.numFrames), blackMat);
+                const pillar = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.0, 6, currentDevice.numFrames), blackMat);
                 pillar.position.y = 3; rotor.add(pillar);
 
+                // Prisma interior (mirada per l'usuari de cara) simulant mirall
                 const prismHeight = 3.4; 
-                const prismMat = new THREE.MeshBasicMaterial({ map: mirrorTexture });
-                const prismRadius = 1.7 / Math.sin(Math.PI / currentDevice.numFrames); // Calcula el radi correcte per encaixar les proporcions
+                const texPraxInner = animationStripTexture.clone(); 
+                texPraxInner.wrapS = THREE.RepeatWrapping;
+                texPraxInner.repeat.set(-1, 1); // Invertim per simular el reflex
+                const prismMat = new THREE.MeshBasicMaterial({ map: texPraxInner });
+                const prismRadius = 1.7 / Math.sin(Math.PI / currentDevice.numFrames); 
 
                 const prism = new THREE.Mesh(new THREE.CylinderGeometry(prismRadius, prismRadius, prismHeight, currentDevice.numFrames), [prismMat, darkWoodMat, darkWoodMat]);
                 prism.position.y = 3; prism.rotation.y = Math.PI / currentDevice.numFrames; rotor.add(prism);
@@ -1006,21 +1041,48 @@
                 deviceObject.add(rotor); camera.position.set(0, 15, 20); controls.target.set(0, 3, 0);
 
             } else if (currentDevice.id === 'fenaquitiscopi') {
-                deviceObject.add(new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 12, 16), darkWoodMat).translateY(-2));
+                const rotor = new THREE.Group(); 
+                rotor.position.set(0, 10, 4); // Ens acostem a Z=4
+                rotor.userData.isRotor = true;
                 
-                const rotor = new THREE.Group(); rotor.position.y = 5; rotor.userData.isRotor = true;
-                const fenaqTexMat = new THREE.MeshBasicMaterial({ map: radialTexture, transparent: true, alphaTest: 0.1, side: THREE.DoubleSide });
-                rotor.add(new THREE.Mesh(new THREE.CircleGeometry(8, 64), fenaqTexMat));
-                deviceObject.add(rotor); 
+                const fenaqFrontMat = new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.1 });
+                fenaqFrontMat.map = radialTexture.clone();
+                fenaqFrontMat.map.wrapS = THREE.RepeatWrapping;
+                fenaqFrontMat.map.repeat.x = -1; 
+                fenaqFrontMat.map.needsUpdate = true;
                 
-                const standMat = new THREE.MeshStandardMaterial({color: 0x5c4033});
-                const standLeft = new THREE.Mesh(new THREE.BoxGeometry(3.75, 18, 0.2), standMat); standLeft.position.set(-2.125, 9, 3);
-                const standRight = new THREE.Mesh(new THREE.BoxGeometry(3.75, 18, 0.2), standMat); standRight.position.set(2.125, 9, 3);
-                const standTop = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, 0.2), standMat); standTop.position.set(0, 16, 3);
-                const standBottom = new THREE.Mesh(new THREE.BoxGeometry(0.5, 9.5, 0.2), standMat); standBottom.position.set(0, 4.75, 3);
-                deviceObject.add(standLeft, standRight, standTop, standBottom);
-
-                camera.position.set(0, 12, 15); controls.target.set(0, 12, 0);
+                const frontCircle = new THREE.Mesh(new THREE.CircleGeometry(8, 64), fenaqFrontMat);
+                frontCircle.rotation.y = Math.PI; 
+                frontCircle.position.z = -0.01;
+                
+                const fenaqBackMat = new THREE.MeshBasicMaterial({ map: radialBackTexture, transparent: true, alphaTest: 0.1 });
+                const backCircle = new THREE.Mesh(new THREE.CircleGeometry(8, 64), fenaqBackMat);
+                backCircle.position.z = 0.01;
+                
+                rotor.add(frontCircle); rotor.add(backCircle);
+                deviceObject.add(rotor);
+                
+                const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 8, 16), darkWoodMat);
+                handle.position.set(0, 6, 4); 
+                deviceObject.add(handle);
+                
+                // MIRALL FÍSIC ENORME
+                const mirrorGeo = new THREE.PlaneGeometry(35, 35);
+                const mirror = new THREE.Reflector(mirrorGeo, {
+                    clipBias: 0.003,
+                    textureWidth: window.innerWidth * window.devicePixelRatio,
+                    textureHeight: window.innerHeight * window.devicePixelRatio,
+                    color: 0x889999
+                });
+                mirror.position.set(0, 10, 0); 
+                
+                const frameGeo = new THREE.BoxGeometry(36, 36, 0.5);
+                const mirrorFrame = new THREE.Mesh(frameGeo, woodMat);
+                mirrorFrame.position.set(0, 10, -0.26);
+                
+                deviceObject.add(mirror); deviceObject.add(mirrorFrame);
+                camera.position.set(0, 16.8, 4.5); 
+                controls.target.set(0, 16.8, 0);
 
             } else if (currentDevice.id === 'mutoscopi') {
                 deviceObject.add(new THREE.Mesh(new THREE.BoxGeometry(3, 8, 3), darkWoodMat).translateY(-2));
