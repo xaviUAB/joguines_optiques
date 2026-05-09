@@ -69,7 +69,7 @@
                     <!-- Ordered Chronologically -->
                     <option value="taumatrop">Taumatrop (1824)</option>
                     <option value="fenaquitiscopi">Fenaquitiscopi (1832)</option>
-                    <option value="zootrop">Zootrop (1834)</option>
+                    <option value="zootrop">Zoòtrop (1834)</option>
                     <option value="praxinoscopi">Praxinoscopi (1877)</option>
                     <option value="mutoscopi">Mutoscopi (1894)</option>
                 </select>
@@ -200,8 +200,8 @@
         const deviceData = {
             taumatrop: { id: 'taumatrop', name: 'Taumatrop', year: '1824', inventor: 'John Ayrton Paris', description: "Disc amb dos dibuixos que es barregen en girar sobre un eix.", physics: "Persistència retiniana pura. El gir ràpid fa que el cervell retingui la imatge de la cara A mentre ja està rebent la imatge de la cara B.", etimologia: "Del grec 'thaûma' (meravella) i 'trópos' (gir).", instructions: "Dibuixa l'element A i l'element B que el complementa. La imatge inicial ha de començar per '2_'.", numFrames: 2 },
             fenaquitiscopi: { id: 'fenaquitiscopi', name: 'Fenaquitiscopi', year: '1832', inventor: 'Joseph Plateau', description: "Disc giratori amb escletxes. Es mira a través d'elles cap al reflex del disc en un mirall.", physics: "Efecte Phi i Moviment Beta. La ranura funciona com l'obturador d'una càmera tallant la visió entre fotogrames.", etimologia: "Del grec 'phenax' (enganyós) i 'skopein' (mirar).", instructions: "Dibuixos seqüencials de 12 frames.", numFrames: 12 },
-            zootrop: { id: 'zootrop', name: 'Zootrop', year: '1834', inventor: 'William George Horner', description: "Cilindre amb escletxes per on mirar cap a l'interior.", physics: "Efecte Phi (moviment aparent). L'ull suma imatges similars per generar moviment.", etimologia: "Del grec 'zoe' (vida) i 'trópos' (gir).", instructions: "Animació clàssica de 12 fotogrames.", numFrames: 12 },
-            praxinoscopi: { id: 'praxinoscopi', name: 'Praxinoscopi', year: '1877', inventor: 'Émile Reynaud', description: "Millora del zootrop usant un prisma central de miralls en lloc d'escletxes.", physics: "Efecte Phi. La reflexió dels miralls estabilitza la imatge mitjançant compensació òptica sense perdre lluminositat.", etimologia: "Del grec 'praxis' (acció) i 'skopein' (mirar).", instructions: "Animació de 12 fotogrames.", numFrames: 12 },
+            zootrop: { id: 'zootrop', name: 'Zoòtrop', year: '1834', inventor: 'William George Horner', description: "Cilindre amb escletxes per on mirar cap a l'interior.", physics: "Efecte Phi (moviment aparent). L'ull suma imatges similars per generar moviment.", etimologia: "Del grec 'zoe' (vida) i 'trópos' (gir).", instructions: "Animació clàssica de 12 fotogrames.", numFrames: 12 },
+            praxinoscopi: { id: 'praxinoscopi', name: 'Praxinoscopi', year: '1877', inventor: 'Émile Reynaud', description: "Millora del zoòtrop usant un prisma central de miralls en lloc d'escletxes.", physics: "Efecte Phi. La reflexió dels miralls estabilitza la imatge mitjançant compensació òptica sense perdre lluminositat.", etimologia: "Del grec 'praxis' (acció) i 'skopein' (mirar).", instructions: "Animació de 12 fotogrames.", numFrames: 12 },
             mutoscopi: { id: 'mutoscopi', name: 'Mutoscopi', year: '1894', inventor: 'Herman Casler', description: "Màquina de visionat amb un rodet com un 'flip-book'.", physics: "Efecte Phi. La ràpida successió de targetes fixes enganya el cervell perquè percebi continuïtat en el moviment.", etimologia: "Del llatí 'mutare' (canviar) i grec 'skopein' (mirar).", instructions: "Ideal per animacions llargues (24 frames). Pots usar tires de 12 i es repetiran.", numFrames: 24 }
         };
 
@@ -222,6 +222,11 @@
         let animationStripTexture, stripCanvas, stripCtx;
         let radialCanvas, radialCtx, radialTexture;
         let radialCanvasB, radialCtxB, radialTexB; // Back face for phenakistoscope
+
+        // Camera Animation State
+        let targetCamPos = new THREE.Vector3();
+        let targetCtrlPos = new THREE.Vector3();
+        let isCamTransitioning = false;
 
         // Physics interaction
         let raycaster = new THREE.Raycaster();
@@ -402,6 +407,10 @@
                 currentDevice = deviceData[e.target.value];
                 updateInfoPanel();
                 
+                // Pla general picat inicial per a la transició
+                camera.position.set(0, 35, 30);
+                controls.target.set(0, 0, 0);
+                
                 initEditor();
                 if (globalFramesMemory.length > 0 && prevNumFrames === currentDevice.numFrames) {
                     restoreFromGlobalMemory();
@@ -439,11 +448,17 @@
 
             document.getElementById('btn-reset-cam').addEventListener('click', () => {
                 if(currentDevice.id === 'fenaquitiscopi') {
-                    camera.position.set(0, 11.8, 1.5); controls.target.set(0, 11.8, -4);
-                } else {
-                    camera.position.set(0, 15, 25); controls.target.set(0, 0, 0);
+                    targetCamPos.set(0, 11.8, 1.5); targetCtrlPos.set(0, 11.8, -4);
+                } else if (currentDevice.id === 'praxinoscopi') {
+                    targetCamPos.set(0, 15, 20); targetCtrlPos.set(0, 3, 0);
+                } else if (currentDevice.id === 'zootrop') {
+                    targetCamPos.set(0, 12, 18); targetCtrlPos.set(0, 4, 0);
+                } else if (currentDevice.id === 'mutoscopi') {
+                    targetCamPos.set(12, 8, 12); targetCtrlPos.set(0, 4, 0);
+                } else if (currentDevice.id === 'taumatrop') {
+                    targetCamPos.set(0, 5, 15); targetCtrlPos.set(0, 5, 0);
                 }
-                controls.update();
+                isCamTransitioning = true;
             });
 
             const updateSpeedUI = () => {
@@ -528,6 +543,7 @@
         }
 
         function on3DMouseDown(event) {
+            isCamTransitioning = false; // Interrompre la transició si l'usuari interactua
             if(isPlaying) return;
             const rect = renderer.domElement.getBoundingClientRect();
             mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -1053,6 +1069,10 @@
 
             scene = new THREE.Scene(); scene.background = new THREE.Color('#1a202c');
             camera = new THREE.PerspectiveCamera(45, width/height, 0.1, 1000); 
+            
+            // Pla general picat d'inici
+            camera.position.set(0, 35, 30);
+            
             renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setSize(width, height);
             renderer.shadowMap.enabled = true; canvasContainer.appendChild(renderer.domElement);
             controls = new THREE.OrbitControls(camera, renderer.domElement); controls.enableDamping = true;
@@ -1097,7 +1117,7 @@
                     const seg = new THREE.Mesh(new THREE.CylinderGeometry(12, 11.4, 8, 8, 1, true, i*angle + 0.04, angle - 0.08), blackMat);
                     seg.position.y = 4; drum.add(seg);
                 }
-                deviceObject.add(drum); camera.position.set(0, 12, 18); controls.target.set(0, 4, 0);
+                deviceObject.add(drum); 
 
             } else if (currentDevice.id === 'praxinoscopi') {
                 deviceObject.add(new THREE.Mesh(new THREE.CylinderGeometry(13, 14, 1, 32), woodMat).translateY(-0.5));
@@ -1115,7 +1135,7 @@
 
                 const prism = new THREE.Mesh(new THREE.CylinderGeometry(4.8, 4.8, 3.4, currentDevice.numFrames), [new THREE.MeshBasicMaterial({ map: mirrorTex }), darkWoodMat, darkWoodMat]);
                 prism.position.y = 3; prism.rotation.y = Math.PI / currentDevice.numFrames; rotor.add(prism);
-                deviceObject.add(rotor); camera.position.set(0, 15, 20); controls.target.set(0, 3, 0);
+                deviceObject.add(rotor); 
 
             } else if (currentDevice.id === 'fenaquitiscopi') {
                 // Mànec vertical
@@ -1152,8 +1172,6 @@
                     mirror.position.set(0, 4.5, -4);
                     deviceObject.add(mirror);
                 }
-                
-                camera.position.set(0, 11.8, 1.5); controls.target.set(0, 11.8, -4);
 
             } else if (currentDevice.id === 'mutoscopi') {
                 deviceObject.add(new THREE.Mesh(new THREE.BoxGeometry(3, 8, 3), darkWoodMat).translateY(-2));
@@ -1199,7 +1217,7 @@
                     rotor.add(anchor);
                     rotor.userData.cards.push(card);
                 }
-                deviceObject.add(rotor); camera.position.set(12, 8, 12); controls.target.set(0, 4, 0);
+                deviceObject.add(rotor); 
 
             } else if (currentDevice.id === 'taumatrop') {
                 const rotor = new THREE.Group(); rotor.position.y = 5; rotor.userData.isRotor = true;
@@ -1219,9 +1237,23 @@
                 hitboxMesh = new THREE.Mesh(new THREE.SphereGeometry(6, 16, 16), new THREE.MeshBasicMaterial({visible: false}));
                 rotor.add(hitboxMesh);
                 
-                deviceObject.add(rotor); camera.position.set(0, 5, 15); controls.target.set(0, 5, 0);
+                deviceObject.add(rotor); 
             }
             scene.add(deviceObject);
+            
+            // Assignem les posicions objectiu de la càmera i iniciem la transició lenta
+            if (currentDevice.id === 'zootrop') {
+                targetCamPos.set(0, 12, 18); targetCtrlPos.set(0, 4, 0);
+            } else if (currentDevice.id === 'praxinoscopi') {
+                targetCamPos.set(0, 15, 20); targetCtrlPos.set(0, 3, 0);
+            } else if (currentDevice.id === 'fenaquitiscopi') {
+                targetCamPos.set(0, 11.8, 1.5); targetCtrlPos.set(0, 11.8, -4);
+            } else if (currentDevice.id === 'mutoscopi') {
+                targetCamPos.set(12, 8, 12); targetCtrlPos.set(0, 4, 0);
+            } else if (currentDevice.id === 'taumatrop') {
+                targetCamPos.set(0, 5, 15); targetCtrlPos.set(0, 5, 0);
+            }
+            isCamTransitioning = true;
         }
 
         function onWindowResize() { camera.aspect = canvasContainer.clientWidth / canvasContainer.clientHeight; camera.updateProjectionMatrix(); renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight); }
@@ -1287,6 +1319,20 @@
                             card.rotation.x = 0; // Posició de repòs normal
                         }
                     });
+                }
+            }
+
+            // Moviment lent de càmera (Transició)
+            if (isCamTransitioning) {
+                let lerpFactor = dt * 1.5; // Velocitat del viatge
+                camera.position.lerp(targetCamPos, lerpFactor);
+                controls.target.lerp(targetCtrlPos, lerpFactor);
+                
+                // Quan estem molt a prop de la posició, la fixem per acabar l'animació
+                if (camera.position.distanceTo(targetCamPos) < 0.05) {
+                    camera.position.copy(targetCamPos);
+                    controls.target.copy(targetCtrlPos);
+                    isCamTransitioning = false;
                 }
             }
 
